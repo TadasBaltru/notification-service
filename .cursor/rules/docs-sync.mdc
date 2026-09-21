@@ -1,0 +1,24 @@
+---
+description: Keep agent reference docs in sync with code in the same edit batch
+globs: src/**,config/**,compose.yaml,Makefile,docker/**
+alwaysApply: false
+---
+
+# Reference docs move with the code
+
+When a file matching these globs is created, renamed, deleted, or its public API changes, the **same reply**
+must also update the affected reference documents. A reply that edits code without touching them is incomplete.
+
+| Change | Update |
+|---|---|
+| New / renamed / deleted class under `src/` | its row in `docs/agent/CODE_MAP.md` (path, layer, responsibility, key signatures, covering test) |
+| Public method signature changed | the CODE_MAP row's signature column and any `docs/agent/RECIPES.md` fragment copied from that class |
+| New or changed `make` target, console command, compose service | `docs/agent/COMMANDS.md` (command + expected output) |
+| A requirement's implementing class or test moved | the row in `docs/REQUIREMENTS_TRACE.md` |
+| A decision changed (retry policy, failover rule, dependency) | `docs/DECISIONS.md` section + `docs/agent/DECISIONS_INDEX.md` one-liner |
+
+Mechanical gate: `docker compose exec -T app php tools/check-docs.php` fails on any class without a CODE_MAP row,
+any CODE_MAP/RECIPES/TRACE reference to a missing file, class or test. It is part of lint and must pass before a
+phase is called done.
+
+Keep CODE_MAP rows to one line each; keep RECIPES fragments <= 40 lines and copied from real project code.

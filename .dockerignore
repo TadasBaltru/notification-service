@@ -1,0 +1,16 @@
+**/.DS_Store
+**/._*
+**/.git/
+**/.gitattributes
+**/.gitignore
+**/*.cache
+**/*.log
+.editorconfig
+.env.*.local
+.env.local
+.github/
+compose.yaml
+Dockerfile
+Makefile
+var/
+vendor/

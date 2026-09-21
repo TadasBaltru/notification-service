@@ -1,0 +1,55 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    restart: unless-stopped
+    # .env.local (gitignored, template in .env.local.dist) is the single switch for the container
+    # environment, e.g. XDEBUG_MODE=debug. Without the file the image default XDEBUG_MODE=off applies.
+    # An `environment:` entry would take precedence over env_file even when unset, so none is declared.
+    env_file:
+      - path: .env.local
+        required: false
+    volumes:
+      - ./:/app
+    ports:
+      - "${HTTP_PORT:-18080}:80"
+    extra_hosts:
+      # Lets Xdebug reach the IDE on Linux hosts
+      - host.docker.internal:host-gateway
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      # The first start installs Composer dependencies before serving anything.
+      start_period: 30s
+
+  database:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: app
+      MARIADB_USER: app
+      MARIADB_PASSWORD: app
+      MARIADB_ROOT_PASSWORD: app
+    # The application reaches the database over the Compose network, so no host port is
+    # published by default. Uncomment this to connect a GUI client from your host.
+    #ports:
+    #  - "${DATABASE_PORT:-13306}:3306"
+    volumes:
+      - database_data:/var/lib/mysql
+      # Creates app_test and grants it to `app`; only executed when the volume is first initialised
+      # (docker compose down -v to re-run).
+      - ./docker/mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  database_data:

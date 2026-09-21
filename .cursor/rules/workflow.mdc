@@ -1,0 +1,34 @@
+---
+description: Phase workflow, token discipline and always-test rule for this project
+alwaysApply: true
+---
+
+# Working protocol
+
+## Start of every phase
+- Read `docs/STATUS.md` first, then the phase entry in `.notes/PLAN.md`. Read `docs/agent/CODE_MAP.md`
+  rows only for classes in scope; open a source file only to edit it. Never read `vendor/`.
+- Before writing boilerplate (provider, handler, mapping, endpoint, test) copy the fragment from
+  `docs/agent/RECIPES.md`.
+- Follow the teaching protocol: <= 15 lines "what / which DDD concept / which test kind and why" before code.
+
+## While coding
+- After EVERY code change run the narrowest test and show its output:
+  `docker compose exec -T app vendor/bin/phpunit --filter <TestName>`
+  A change without a run is not finished. If Docker is down, start it; never say "should work".
+- New behaviour -> new test in the same phase. Bug found -> failing test first, then fix.
+- Verify commands against `docs/agent/COMMANDS.md` instead of guessing flags.
+
+## End of every phase
+- Full suite + lint green: `vendor/bin/phpunit`, `vendor/bin/php-cs-fixer check`, `vendor/bin/phpstan`,
+  `php tools/check-docs.php` (all inside the app container).
+- Update `docs/STATUS.md` (done / next / env notes), `docs/AI_NOTES.md` (proposed, accepted/rejected, verified),
+  `docs/REQUIREMENTS_TRACE.md` rows touched, `.notes/learning.md` entry.
+- Walkthrough for the user: exact command, expected output, one thing to break on purpose, interview sentence.
+- Propose a conventional commit message. NEVER run git write commands (init, add, commit, push) unless the
+  user explicitly asks in that message.
+
+## Never
+- Commit or print secrets; real credentials live only in `.env.local` (gitignored).
+- Add dependencies without a one-line "why" in `docs/DECISIONS.md`.
+- Widen scope: features not in the plan are suggestions at the end of the reply, not code.

@@ -1,0 +1,7 @@
+# Every test runs inside a transaction that is rolled back afterwards (PHPUnit extension registered in
+# phpunit.xml.dist), so integration tests leave app_test untouched and need no fixture cleanup.
+when@test:
+    dama_doctrine_test:
+        enable_static_connection: true
+        enable_static_meta_data_cache: true
+        enable_static_query_cache: true

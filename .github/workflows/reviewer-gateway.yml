@@ -1,0 +1,17 @@
+name: PR Reviewer Gateway
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  merge_group:
+    types: [checks_requested]
+
+jobs:
+  reviewer-gateway:
+    uses: TransferGo/.github/.github/workflows/reviewer-gateway.yml@master
+    with:
+      generic-bot-name: generic-bot
+    permissions:
+      pull-requests: read
+      contents: read
