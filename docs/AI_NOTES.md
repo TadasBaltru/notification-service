@@ -121,3 +121,13 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   - `OpenApi\` allowed in `src/Controller/` (starter health probe) as well as `**/UserInterface/**`.
   - phpunit `--filter "OpenApi|HealthEndpointTest"` → `OK (3 tests, 56 assertions)`.
 
+## Phase 1.1 — Domain model
+- Proposed and accepted: children held as `Doctrine\Common\Collections\Collection` (DECISIONS §1.5); providers
+  receive `OutboundMessage` so an adapter cannot call `markSent` on the aggregate; `DeliveryAlreadyFinal` as the
+  illegal-transition exception (T1), covering double `markSent`.
+- Rejected: `ProviderFailure::$code` as a promoted property — it collides with `\Exception::$code` (fatal at
+  autoload). Renamed to `$errorCode`. Rejected generating attempt ids inside Domain (no `Uuid::v7()` here);
+  `startAttempt(DeliveryAttemptId, ...)` takes the id from the caller.
+- Verified: `DeliveryTest` + `NotificationTest` + `ValueObjectTest` green with zero `Symfony\` imports;
+  `check-layers` allows `Doctrine\Common\Collections` and rejects other Doctrine/Symfony in Domain.
+

@@ -9,8 +9,8 @@ Status values: `pending` (not started), `in progress` (phase running), `done` (i
 
 | ID | Requirement (task wording) | Implemented in (planned) | Proof (test / command) | Phase | Status |
 |---|---|---|---|---|---|
-| R01 | Send notifications through multiple channels (at least SMS and Email) | `Channel` enum; `Notification` expands one `Delivery` per requested channel | `NotificationTest`, `NotificationApiTest` | 1.1, 1.3 | pending |
-| R02 | Channel / provider abstraction so new providers can be added | `NotificationProvider` port (Domain); adapters in Infrastructure | `ProviderRegistryTest`; `add-notification-provider` skill | 1.1, 2.1 | pending |
+| R01 | Send notifications through multiple channels (at least SMS and Email) | `Channel` enum; `Notification` expands one `Delivery` per requested channel | `NotificationTest` (API proof in 1.3) | 1.1, 1.3 | in progress |
+| R02 | Channel / provider abstraction so new providers can be added | `NotificationProvider` port (Domain); adapters in Infrastructure | Domain port in 1.1; registry test in 2.1 | 1.1, 2.1 | in progress |
 | R03 | At least two providers per channel | SMS: `TwilioSmsProvider`, `FakeSmsProvider`; Email: `SmtpMailerProvider`, `FakeEmailProvider` | `debug:container --tag=notification.provider` lists four | 2.1, 2.3, 2.4 | pending |
 | R04 | Failover: if one provider fails, use another | `FailoverDeliveryStrategy` | `FailoverDeliveryStrategyTest::test_it_fails_over_to_next_provider_on_transient_failure` | 2.2 | pending |
 | R05 | Define how multiple providers are used (order / policy) | `ProviderOrdering` (`priority`, `round_robin`) chosen per channel in config | `ProviderOrderingTest` | 2.1 | pending |
@@ -30,8 +30,8 @@ Status values: `pending` (not started), `in progress` (phase running), `done` (i
 | R19 | Optional: track what was sent, when, through which channel / provider, to which user | Tables `notifications`, `notification_deliveries`, `notification_delivery_attempts` (notification status derived from deliveries, no column); `GET /notifications/{id}`; `GET /users/{userId}/notifications` | `NotificationStatusTest`; manual curl | 1.3, 4.2 | pending |
 | R20 | Requests carry a user identifier | `userId` in `SendNotificationRequest`; `user_id` column indexed | `NotificationApiTest` | 1.3 | pending |
 | R21 | Use existing solutions where sensible, evaluate fit, document choices | `docs/DECISIONS.md` §1 (Messenger, Mailer, HttpClient, RateLimiter, dama; Notifier rejected) | review | 0.6, 4.4 | pending (draft exists since 0.6) |
-| R22 | DDD with sensible boundaries | `src/NotificationPublisher/{Domain,Application,Infrastructure,UserInterface}`; ports in Domain; XML mapping | `tools/check-layers.php` green | 1.1-1.3 | pending |
-| R23 | Tests covering the important behaviour | Unit (domain, strategy, Twilio classification), integration (API, repositories, end-to-end) | `vendor/bin/phpunit` green | 1.1-3.3 | pending |
+| R22 | DDD with sensible boundaries | `src/NotificationPublisher/{Domain,Application,Infrastructure,UserInterface}`; ports in Domain; XML mapping | `tools/check-layers.php` green | 1.1-1.3 | in progress |
+| R23 | Tests covering the important behaviour | Unit (domain, strategy, Twilio classification), integration (API, repositories, end-to-end) | `vendor/bin/phpunit` green (`DeliveryTest`, `NotificationTest`) | 1.1-3.3 | in progress |
 | R24 | Extend the Makefile; use Docker; runs out of the box | Targets `test-db`, `worker-logs`, `failed`, `retry-failed`, `send`; services `worker`, `mailpit`; auto-migrations | cold start `docker compose down -v && make test` | 0.6, 3.2, 5 | pending (test-db done in 0.6) |
 | R25 | README: how to start, run tests, exercise the service, assumptions | `README.md` | follow README top to bottom in a fresh terminal | 4.4 | pending |
 | R26 | State what was left out of scope and why | `docs/DECISIONS.md` §5 | review | 4.4 | pending |

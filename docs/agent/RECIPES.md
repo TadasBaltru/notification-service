@@ -133,21 +133,23 @@ final readonly class NotificationController
 Validation failures become 422 and domain exceptions become 400/404/409 through a `#[AsEventListener]` on
 `kernel.exception` that returns `application/problem+json`.
 
-## R6 — Unit test skeleton (template, replaced in 1.1; skill fragment T1)
+## R6 — Unit test (from `tests/Unit/NotificationPublisher/Domain/Model/DeliveryTest.php`; skill fragment T1)
 ```php
 final class DeliveryTest extends TestCase
 {
-    public function test_it_cannot_be_sent_twice(): void
+    public function test_it_cannot_be_marked_sent_twice(): void
     {
-        $delivery = DeliveryBuilder::aDelivery()->sent()->build();
+        $delivery = DeliveryBuilder::aPendingSmsDelivery()->build();
+        $delivery->markSent('twilio', 'SM123', new \DateTimeImmutable(DeliveryBuilder::NOW));
 
-        $this->expectException(DeliveryAlreadySent::class);
+        $this->expectException(DeliveryAlreadyFinal::class);
 
-        $delivery->markSent('smtp', 'msg-1', new \DateTimeImmutable('2026-01-01 10:00:00'));
+        $delivery->markSent('fake_sms', 'F1', new \DateTimeImmutable('2026-01-01 10:00:01 UTC'));
     }
 }
 ```
-No kernel, no DB; builders live in `tests/Support/`.
+No kernel, no DB; builders live in `tests/Support/DeliveryBuilder.php`. A final delivery (`sent`/`failed`/`skipped`)
+throws `DeliveryAlreadyFinal`; `throttled` is not final and can still `markSent`.
 
 ## R7 — Integration test skeleton (template, replaced in 1.2/1.3; skill fragment T5/T6)
 ```php

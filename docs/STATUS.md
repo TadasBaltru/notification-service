@@ -3,19 +3,16 @@
 Read this first at the start of every phase. Keep it under 20 lines. Plan lives in `.notes/PLAN.md` (gitignored).
 
 ## Done
-- 0.1–0.6 tooling, rules, skills, quality gate, debugger, test DB + docs skeleton.
-- **0.7 API documentation:** NelmioApiDocBundle 5.12 + Twig/Asset; Swagger UI `/api/doc`; `/health` documented;
-  `ProblemSchema` (RFC 7807 for 1.3); gates `OpenApiCoverageTest`, `OpenApiSnapshotTest`, `OpenApiAssertions`;
-  rule `api-docs.mdc`; DECISIONS §1.9; TRACE R31 in progress. Flex ignored the Nelmio contrib recipe (registered
-  by hand). JSON controller id is `nelmio_api_doc.controller.swagger`; document API is `toJson()` not `toArray()`.
+- 0.1–0.7 tooling, rules, skills, quality gate, debugger, test DB, OpenAPI/Swagger UI.
+- **1.1 Domain model:** `Notification` aggregate + `Delivery`/`DeliveryAttempt`; VOs, enums, ports, domain
+  exceptions under `src/NotificationPublisher/Domain/`. Unit tests `DeliveryTest`, `NotificationTest`,
+  `ValueObjectTest`. Only Domain framework import is `Doctrine\Common\Collections`. TRACE R01/R02/R22 in progress.
 
 ## Next
-- **1.1 Domain model** (`.notes/phases/1.1-domain-model.md`): entities, VOs, enums, exceptions, ports; pure unit
-  tests; check-layers green; RECIPES R6, CODE_MAP rows, TRACE R01/R02. Every later HTTP endpoint is documented
-  via `api-docs.mdc` in the same reply as the controller.
+- **1.2 Persistence** (`.notes/phases/1.2-persistence.md`): Doctrine XML mapping, custom DBAL types, repositories,
+  initial migration for the three domain tables. `doctrine:schema:validate` + repository round-trip test.
 
 ## Environment notes
-- **No `.git` directory** — user must `git init` and make Day 0 + 0.7 commits; the agent never runs git write.
-- Windows host, no `make`: `docker compose exec -T app ...` (`docs/agent/COMMANDS.md`). Dump OpenAPI from a
-  container `sh -c` so the file is LF. Docker Desktop must be up.
+- Windows host, no `make`: `docker compose exec -T app ...` (`docs/agent/COMMANDS.md`). Docker Desktop must be up.
 - `.env.local` has `XDEBUG_MODE=debug` (gitignored). CRLF: if cs shows full-file diffs, it is line endings.
+- Agent never runs git write; commit when the user asks (`feat(domain): notification, delivery and attempt model with provider port`).
