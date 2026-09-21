@@ -9,23 +9,47 @@ use App\NotificationPublisher\Domain\Exception\DeliveryAlreadyFinal;
 use App\NotificationPublisher\Domain\Exception\ProviderFailure;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Entity]
+#[ORM\Table(name: 'notification_deliveries')]
+#[ORM\UniqueConstraint(name: 'uniq_delivery_notification_channel', columns: ['notification_id', 'channel'])]
 final class Delivery
 {
     /** @var Collection<int, DeliveryAttempt> */
+    #[ORM\OneToMany(targetEntity: DeliveryAttempt::class, mappedBy: 'delivery', cascade: ['persist'], orphanRemoval: true)]
     private Collection $attempts;
+
+    #[ORM\Column(length: 20, enumType: DeliveryStatus::class)]
     private DeliveryStatus $status;
+
+    #[ORM\Column]
     private int $attemptsCount = 0;
+
+    #[ORM\Column(length: 64, nullable: true)]
     private ?string $sentViaProvider = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $providerMessageId = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $sentAt = null;
+
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
     private function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'delivery_id')]
         private readonly DeliveryId $id,
+        #[ORM\ManyToOne(targetEntity: Notification::class, inversedBy: 'deliveries')]
+        #[ORM\JoinColumn(name: 'notification_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
         private readonly Notification $notification,
+        #[ORM\Column(length: 16, enumType: Channel::class)]
         private readonly Channel $channel,
+        #[ORM\Column(type: 'recipient', length: 255)]
         private readonly Recipient $recipient,
+        #[ORM\Column(type: 'datetime_immutable')]
         private readonly \DateTimeImmutable $createdAt,
     ) {
         $this->status = DeliveryStatus::Pending;

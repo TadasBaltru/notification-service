@@ -19,3 +19,4 @@ services:
         exclude:
             - '../src/Kernel.php'
             - '../src/NotificationPublisher/UserInterface/Http/OpenApi/'
+            - '../src/NotificationPublisher/UserInterface/Http/Request/'

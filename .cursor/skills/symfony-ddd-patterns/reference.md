@@ -208,43 +208,41 @@ final readonly class FailoverDeliveryStrategy
 }
 ```
 
-## C1 — Doctrine XML mapping (ORM 3)
+## C1 — Doctrine attribute mapping (ORM 3)
 `config/packages/doctrine.yaml`:
 ```yaml
 doctrine:
     orm:
         mappings:
             NotificationPublisher:
-                type: xml
+                type: attribute
                 is_bundle: false
-                dir: '%kernel.project_dir%/src/NotificationPublisher/Infrastructure/Persistence/Doctrine/Mapping'
+                dir: '%kernel.project_dir%/src/NotificationPublisher/Domain/Model'
                 prefix: 'App\NotificationPublisher\Domain\Model'
                 alias: NotificationPublisher
 ```
-`Mapping/Notification.orm.xml` (file name = class short name; nested namespaces use `.` instead of `\`):
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
-                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
-                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
-    <entity name="App\NotificationPublisher\Domain\Model\Notification" table="notifications">
-        <id name="id" type="notification_id" column="id"/>
-        <field name="userId" type="string" length="64" column="user_id"/>
-        <field name="idempotencyKey" type="string" length="128" column="idempotency_key" unique="true"/>
-        <field name="requiresUserAction" type="boolean" column="requires_user_action"/>
-        <field name="createdAt" type="datetime_immutable" column="created_at"/>
-        <embedded name="content" class="App\NotificationPublisher\Domain\Model\NotificationContent" use-column-prefix="false"/>
-        <indexes><index name="idx_notifications_user" columns="user_id"/></indexes>
-    </entity>
-</doctrine-mapping>
+```php
+#[ORM\Entity]
+#[ORM\Table(name: 'notifications')]
+#[ORM\Index(name: 'idx_notifications_user_id', columns: ['user_id'])]
+final class Notification
+{
+    #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'notification', cascade: ['persist'], orphanRemoval: true)]
+    private Collection $deliveries;
+
+    private function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'notification_id')]
+        private readonly NotificationId $id,
+        #[ORM\Embedded(class: NotificationContent::class, columnPrefix: false)]
+        private readonly NotificationContent $content,
+        // ...
+    ) {}
+}
 ```
-Embeddable: `<embeddable name="...NotificationContent"><field name="subject" .../><field name="body" type="text"/></embeddable>`.
-Relations: `<many-to-one field="notification" target-entity="...Notification"><join-column name="notification_id" nullable="false" on-delete="CASCADE"/></many-to-one>`.
-Enum column: `<field name="status" type="string" length="20" enum-type="...DeliveryStatus"/>` (string-backed enum).
-Remove the starter's `App` attribute mapping from `doctrine.yaml` when adding this one: `MappingDriverChain` returns
-the first driver whose prefix matches, so `App` (attribute) listed before `App\NotificationPublisher\Domain\Model`
-(xml) would claim the class and fail with "not a valid entity or mapped superclass".
+Embeddable: `#[ORM\Embeddable]` on `NotificationContent`. Enum column: `#[ORM\Column(length: 16, enumType: Channel::class)]`.
+Custom DBAL type names (`notification_id`, `recipient`) stay strings so Domain does not import Infrastructure types.
+Remove any leftover broad `App` attribute mapping: `MappingDriverChain` returns the first prefix match.
 
 ## C2 — Custom DBAL type wrapping a value object (Infrastructure)
 ```php

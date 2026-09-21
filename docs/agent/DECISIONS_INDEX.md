@@ -10,7 +10,7 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | PHPStan level 8 with symfony/doctrine/phpunit extensions; no strict-rules, no level 9 | §1.3 |
 | php-cs-fixer with `@Symfony` + risky + `@PER-CS2.0`; Pint rejected; `final` is convention not fixer rule | §1.4 |
 | Layer and doc gates are `tools/check-layers.php` / `tools/check-docs.php`, not deptrac | §1.5 |
-| Domain may import `Doctrine\Common\Collections` only (mapped one-to-many needs `Collection`); nothing else from Doctrine | §1.5 |
+| Domain may import `Doctrine\Common\Collections` and `Doctrine\ORM\Mapping`; EntityManager / DBAL types stay in Infrastructure | §1.5 |
 | Xdebug via `.vscode/launch.json` port 9003, `/app -> ${workspaceFolder}`; `.env.local` is the switch (Compose `env_file`) | §1.6 |
 | Messenger + Doctrine transport = outbox without a broker; Mailer, HttpClient, Uid v7, Clock, RateLimiter on DBAL cache | §1.7 |
 | `symfony/notifier` rejected: its failover DSN hides the semantics we must design | §1.8 |
@@ -26,7 +26,7 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | Disabled channel -> delivery `skipped`, never dispatched | §3.5 |
 | SMTP `TransportException` before `DATA` -> transient, from `DATA` on -> unknown; HTTP transport errors always unknown | §3.3 |
 | Two buses: `command.bus` with `doctrine_transaction` (outbox), `delivery.bus` without (handler flushes, then throws); tests use `in-memory://`, never `sync://` | §3.6 |
-| Three domain tables (1.2, no `notifications.status`) + `messenger_messages` (3.1, `auto_setup=0`) + `cache_items` (4.1); XML mapping replaces the `App` attribute mapping | §4 |
+| Three domain tables (1.2, no `notifications.status`) + `messenger_messages` (3.1, `auto_setup=0`) + `cache_items` (4.1); aggregates mapped with ORM attributes | §4 |
 | No users/contacts, providers/channels, templates or outbox tables | §4.1 |
 | `app_test` from `docker/mariadb/init.sql`; schema prepared by `make test`; dama rollback per test | §4.2 |
 | Out of scope: push channel, templating, cooldown/circuit breaker, receipt webhooks, API auth, multi-tenancy | §5 |

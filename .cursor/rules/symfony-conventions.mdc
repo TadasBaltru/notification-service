@@ -7,7 +7,7 @@ alwaysApply: true
 
 - Every PHP file starts with `<?php` + `declare(strict_types=1);`. Namespaces follow PSR-4 from `App\`.
 - Classes are `final` unless designed for extension; services are `final readonly class` with constructor
-  promotion and no setters. Doctrine-mapped entities are `final` too (XML mapping, no proxies needed
+  promotion and no setters. Doctrine-mapped entities are `final` too (attribute mapping, no proxies needed
   thanks to native lazy objects).
 - Prefer native enums (backed, `string`) over class constants; enums may carry small behaviour methods.
 - Dependency injection: autowire by constructor type. Use `#[Autowire('%param%')]`, `#[AutowireIterator]`,

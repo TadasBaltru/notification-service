@@ -41,11 +41,311 @@
                     }
                 }
             }
+        },
+        "/notifications": {
+            "post": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Accept a notification",
+                "operationId": "post_notifications_create",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendNotificationRequest"
+                            },
+                            "example": {
+                                "userId": "user-1",
+                                "idempotencyKey": "order-42",
+                                "channels": [
+                                    "email"
+                                ],
+                                "subject": "Hello",
+                                "body": "Your order is confirmed.",
+                                "requiresUserAction": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Notification accepted; deliveries are pending",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay of an existing notification",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed JSON",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed, unknown user, or missing contact for a requested channel",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Notification status",
+                "operationId": "get_notifications_get",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current notification and per-channel delivery status",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown notification id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ProblemViolationSchema": {
+                "required": [
+                    "propertyPath",
+                    "message"
+                ],
+                "properties": {
+                    "propertyPath": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "Problem": {
+                "required": [
+                    "type",
+                    "title",
+                    "status"
+                ],
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "format": "uri",
+                        "example": "about:blank"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Unknown user"
+                    },
+                    "status": {
+                        "type": "integer",
+                        "example": 422
+                    },
+                    "detail": {
+                        "type": "string",
+                        "example": "No contact for channel sms",
+                        "nullable": true,
+                        "default": null
+                    },
+                    "violations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProblemViolationSchema"
+                        },
+                        "default": []
+                    }
+                },
+                "type": "object"
+            },
+            "DeliverySchema": {
+                "required": [
+                    "id",
+                    "channel",
+                    "status",
+                    "recipient"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "channel": {
+                        "type": "string",
+                        "enum": [
+                            "email",
+                            "sms"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "recipient": {
+                        "type": "string",
+                        "example": "user1@example.test"
+                    }
+                },
+                "type": "object"
+            },
+            "Notification": {
+                "required": [
+                    "id",
+                    "status",
+                    "deliveries"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "deliveries": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliverySchema"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "RecipientOverrideRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "nullable": true,
+                        "default": null
+                    },
+                    "phone": {
+                        "type": "string",
+                        "nullable": true,
+                        "default": null
+                    }
+                },
+                "type": "object"
+            },
+            "SendNotificationRequest": {
+                "required": [
+                    "userId",
+                    "idempotencyKey",
+                    "channels",
+                    "subject",
+                    "body"
+                ],
+                "properties": {
+                    "userId": {
+                        "type": "string",
+                        "example": "user-1",
+                        "maxLength": 64
+                    },
+                    "idempotencyKey": {
+                        "type": "string",
+                        "example": "order-42",
+                        "maxLength": 128
+                    },
+                    "channels": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "email",
+                                "sms"
+                            ]
+                        },
+                        "example": [
+                            "email"
+                        ],
+                        "minItems": 1
+                    },
+                    "subject": {
+                        "type": "string",
+                        "example": "Hello",
+                        "maxLength": 255
+                    },
+                    "body": {
+                        "type": "string",
+                        "example": "Your order is confirmed.",
+                        "maxLength": 65535
+                    },
+                    "requiresUserAction": {
+                        "type": "boolean",
+                        "example": false,
+                        "default": false
+                    },
+                    "recipient": {
+                        "nullable": true,
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/RecipientOverrideRequest"
+                            }
+                        ],
+                        "default": null
+                    }
+                },
+                "type": "object"
+            }
         }
     },
     "tags": [
         {
             "name": "Operations"
+        },
+        {
+            "name": "Notifications"
         }
     ]
 }

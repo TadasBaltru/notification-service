@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\NotificationPublisher\Domain\Model;
 
 use App\NotificationPublisher\Domain\Exception\InvalidNotificationContent;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Embeddable]
 final readonly class NotificationContent
 {
     private function __construct(
+        #[ORM\Column(length: 255)]
         private string $subject,
+        #[ORM\Column(type: 'text')]
         private string $body,
     ) {}
 

@@ -9,6 +9,12 @@ nelmio_api_doc:
         servers:
             - url: /
               description: Relative to the host serving this application
+    models:
+        names:
+            - { alias: Problem, type: App\NotificationPublisher\UserInterface\Http\OpenApi\ProblemSchema }
+            - { alias: Notification, type: App\NotificationPublisher\UserInterface\Http\OpenApi\NotificationSchema }
+            - { alias: Delivery, type: App\NotificationPublisher\UserInterface\Http\OpenApi\DeliverySchema }
+            - { alias: ProblemViolation, type: App\NotificationPublisher\UserInterface\Http\OpenApi\ProblemViolationSchema }
     areas:
         default:
             path_patterns:

@@ -6,20 +6,26 @@ doctrine:
 
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
+        types:
+            notification_id: App\NotificationPublisher\Infrastructure\Persistence\Doctrine\Type\NotificationIdType
+            delivery_id: App\NotificationPublisher\Infrastructure\Persistence\Doctrine\Type\DeliveryIdType
+            delivery_attempt_id: App\NotificationPublisher\Infrastructure\Persistence\Doctrine\Type\DeliveryAttemptIdType
+            user_id: App\NotificationPublisher\Infrastructure\Persistence\Doctrine\Type\UserIdType
+            idempotency_key: App\NotificationPublisher\Infrastructure\Persistence\Doctrine\Type\IdempotencyKeyType
+            recipient: App\NotificationPublisher\Infrastructure\Persistence\Doctrine\Type\RecipientType
     orm:
         enable_lazy_ghost_objects: true
         enable_native_lazy_objects: true
         report_fields_where_declared: true
-        validate_xml_mapping: true
         naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
         auto_mapping: true
         mappings:
-            App:
+            NotificationPublisher:
                 type: attribute
                 is_bundle: false
-                dir: '%kernel.project_dir%/src'
-                prefix: 'App'
-                alias: App
+                dir: '%kernel.project_dir%/src/NotificationPublisher/Domain/Model'
+                prefix: 'App\NotificationPublisher\Domain\Model'
+                alias: NotificationPublisher
         controller_resolver:
             auto_mapping: false
 

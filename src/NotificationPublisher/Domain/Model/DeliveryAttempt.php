@@ -7,19 +7,37 @@ namespace App\NotificationPublisher\Domain\Model;
 use App\NotificationPublisher\Domain\Exception\AttemptNotInProgress;
 use App\NotificationPublisher\Domain\Exception\InvalidAttemptOutcome;
 use App\NotificationPublisher\Domain\Exception\ProviderFailure;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Entity]
+#[ORM\Table(name: 'notification_delivery_attempts')]
 final class DeliveryAttempt
 {
+    #[ORM\Column(length: 32, enumType: AttemptOutcome::class)]
     private AttemptOutcome $outcome;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $finishedAt = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
     private ?string $errorCode = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $errorMessage = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $providerMessageId = null;
 
     private function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'delivery_attempt_id')]
         private readonly DeliveryAttemptId $id,
+        #[ORM\ManyToOne(targetEntity: Delivery::class, inversedBy: 'attempts')]
+        #[ORM\JoinColumn(name: 'delivery_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
         private readonly Delivery $delivery,
+        #[ORM\Column(length: 64)]
         private readonly string $provider,
+        #[ORM\Column(type: 'datetime_immutable')]
         private readonly \DateTimeImmutable $startedAt,
     ) {
         $this->outcome = AttemptOutcome::InProgress;

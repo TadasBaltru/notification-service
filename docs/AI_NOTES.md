@@ -131,3 +131,53 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
 - Verified: `DeliveryTest` + `NotificationTest` + `ValueObjectTest` green with zero `Symfony\` imports;
   `check-layers` allows `Doctrine\Common\Collections` and rejects other Doctrine/Symfony in Domain.
 
+## Phase 1.2 — Persistence
+- Proposed and accepted: XML mapping only (`prefix: App\NotificationPublisher\Domain\Model`) replacing the
+  starter `App` attribute driver; custom DBAL types for VO ids (`Uuid` only in the type) and string VOs;
+  string-backed enums via XML `enum-type`; `NotificationContent` as an embeddable (`use-column-prefix=false`
+  so columns are `subject`/`body`); repository adapters behind Domain ports with `#[AsAlias(..., public: true)]`.
+- Rejected: keeping both attribute and XML mappings (driver chain would claim `App\NotificationPublisher\...`);
+  a `notifications.status` column; `messenger_messages` / `cache_items` in this migration (3.1 / 4.1);
+  fetching the port from the container without a public alias (the alias was inlined at compile time).
+- Verified / corrected:
+  - Bundled ORM XSD (`doctrine-mapping.xsd`) has `enum-type` on `<field>`; website XSD is stale.
+    `validate_xml_mapping: true` + `doctrine:schema:validate` → `[OK]` mapping and database.
+  - Doctrine `UnitOfWork` stringifies identifiers: UUID VOs gained `__toString()` (no Doctrine import).
+  - Unique `(notification_id, channel)` and `idempotency_key` throw `UniqueConstraintViolationException`
+    (`DoctrineNotificationRepositoryTest`, 3 tests). Migration applied on `app` and `app_test`.
+
+## Phase 1.3 — Accept notification API
+- Proposed and accepted: controller dispatches `SendNotification` on the default `MessageBusInterface` and reads
+  `HandledStamp` (no `command.bus` yet — 3.1). `InMemoryRecipientResolver` seeded from `notifications.recipients`
+  (`user-1` has email+phone, `user-email-only` has email). Optional `recipient` override on the DTO. Notification
+  status is derived in `NotificationPresenter` (no column). Error listener always emits the five `Problem` fields.
+- Rejected: `#[OA\JsonContent(ref: Schema::class)]` string refs (Nelmio left a FQCN `$ref`, coverage failed);
+  `Model()` on empty attribute-only schema classes (swagger-php warned `Multiple definitions for @OA\Schema()->schema`
+  and PHPUnit `failOnWarning` failed). Schema classes are now property DTOs aliased in `nelmio_api_doc.yaml`.
+- Rejected: listener priority `-256` (after `ErrorListener` `-128`). `ExceptionEvent::setResponse()` stops
+  propagation, so domain exceptions stayed HTML 500. Listener runs at `-8` (after log, before HTML renderer).
+- Verified: `NotificationApiTest` POST 202 + two pending deliveries; replay 200 same id; unknown user 422 and no
+  rows; missing sms contact 422 names `sms`; malformed JSON 400; missing field 422; unknown id 404; each call
+  `assertResponseIsDocumented()`. `OpenApiCoverageTest` + `OpenApiSnapshotTest` green after dump.
+
+## Phase 1.4 — Day 1 wrap
+- Proposed and accepted: no product code in this phase; wrap is the five-command gate plus STATUS / TRACE / learning.
+- Rejected: starting 2.1 in the same chat (brief: do not start Day 2). Extra product/lint commit — 1.3 already left
+  the tree green; only handoff docs change.
+- Verified / corrected (inside the app container, 2026-09-21):
+  - `vendor/bin/phpunit` → `OK (37 tests, 409 assertions)`
+  - `vendor/bin/php-cs-fixer check --diff` → `Found 0 of 86 files that can be fixed`
+  - `vendor/bin/phpstan analyse --memory-limit=1G` (after `cache:warmup`) → `[OK] No errors`
+  - `php tools/check-docs.php` → `check-docs: OK (67 classes mapped)`
+  - `php tools/check-layers.php` → `check-layers: OK`
+  - `GET http://localhost:18080/health` → `{"status":"ok"}`
+  - TRACE: no 1.1–1.3 row was still `pending`. R22 promoted to `done` (`check-layers` + XML mapping).
+    R01/R02/R17/R19/R23/R31 stay `in progress` (providers, e2e send, tracking polish, later tests).
+
+## Mapping follow-up — ORM attributes on aggregates
+- Proposed and accepted: replace XML mapping with `#[ORM\Entity]` on Domain model classes. Reason: pragmatic DDD
+  (aggregates as Doctrine entities) scales with the Symfony stack; XML was a second file per class.
+- Rejected: a separate Infrastructure `*Entity` layer (double bookkeeping); putting `EntityManager` in Domain.
+- Still in Infrastructure: repositories, custom DBAL types. `check-layers` allows `Doctrine\ORM\Mapping` only.
+
+

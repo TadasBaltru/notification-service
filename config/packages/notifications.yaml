@@ -1,0 +1,7 @@
+parameters:
+    notifications.recipients:
+        user-1:
+            email: 'user1@example.test'
+            phone: '+37060000001'
+        user-email-only:
+            email: 'email-only@example.test'

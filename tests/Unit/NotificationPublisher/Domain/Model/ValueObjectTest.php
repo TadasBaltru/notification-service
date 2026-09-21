@@ -9,6 +9,8 @@ use App\NotificationPublisher\Domain\Exception\InvalidIdentity;
 use App\NotificationPublisher\Domain\Exception\InvalidNotificationContent;
 use App\NotificationPublisher\Domain\Exception\InvalidRecipient;
 use App\NotificationPublisher\Domain\Exception\InvalidUserId;
+use App\NotificationPublisher\Domain\Model\DeliveryAttemptId;
+use App\NotificationPublisher\Domain\Model\DeliveryId;
 use App\NotificationPublisher\Domain\Model\IdempotencyKey;
 use App\NotificationPublisher\Domain\Model\NotificationContent;
 use App\NotificationPublisher\Domain\Model\NotificationId;
@@ -51,5 +53,14 @@ final class ValueObjectTest extends TestCase
         $this->expectException(InvalidIdentity::class);
 
         NotificationId::fromString('not-a-uuid');
+    }
+
+    public function test_identity_value_objects_stringify_to_their_value(): void
+    {
+        $value = '01990a2f-0000-7000-8000-000000000001';
+
+        self::assertSame($value, (string) NotificationId::fromString($value));
+        self::assertSame($value, (string) DeliveryId::fromString($value));
+        self::assertSame($value, (string) DeliveryAttemptId::fromString($value));
     }
 }

@@ -9,26 +9,20 @@ use OpenApi\Attributes as OA;
 /**
  * RFC 7807 problem details. The JSON exception listener (phase 1.3) must emit this shape.
  */
-#[OA\Schema(
-    schema: 'Problem',
-    required: ['type', 'title', 'status'],
-    properties: [
-        new OA\Property(property: 'type', type: 'string', format: 'uri', example: 'about:blank'),
-        new OA\Property(property: 'title', type: 'string', example: 'Unknown user'),
-        new OA\Property(property: 'status', type: 'integer', example: 422),
-        new OA\Property(property: 'detail', type: 'string', example: 'No contact for channel sms', nullable: true),
-        new OA\Property(
-            property: 'violations',
-            type: 'array',
-            items: new OA\Items(
-                type: 'object',
-                required: ['propertyPath', 'message'],
-                properties: [
-                    new OA\Property(property: 'propertyPath', type: 'string'),
-                    new OA\Property(property: 'message', type: 'string'),
-                ],
-            ),
-        ),
-    ],
-)]
-final readonly class ProblemSchema {}
+final readonly class ProblemSchema
+{
+    /**
+     * @param list<ProblemViolationSchema> $violations
+     */
+    public function __construct(
+        #[OA\Property(format: 'uri', example: 'about:blank')]
+        public string $type,
+        #[OA\Property(example: 'Unknown user')]
+        public string $title,
+        #[OA\Property(example: 422)]
+        public int $status,
+        #[OA\Property(example: 'No contact for channel sms', nullable: true)]
+        public ?string $detail = null,
+        public array $violations = [],
+    ) {}
+}

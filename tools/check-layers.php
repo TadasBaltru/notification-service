@@ -13,11 +13,13 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $context = 'src/NotificationPublisher';
 
-// Doctrine\Common\Collections is a standalone collection library (no ORM dependency); the ORM swaps in
-// PersistentCollection behind the same Collection interface, which is what makes a mapped one-to-many
-// possible on an otherwise framework-free aggregate. See DECISIONS §1.5.
+// Domain may import Collections (mapped one-to-many hydration) and ORM mapping attributes (aggregates are
+// Doctrine entities). Repositories, EntityManager and DBAL types stay in Infrastructure. See DECISIONS §1.5.
 $allowed = [
-    'Domain' => ['Doctrine\\Common\\Collections\\'],
+    'Domain' => [
+        'Doctrine\\Common\\Collections\\',
+        'Doctrine\\ORM\\Mapping',
+    ],
 ];
 
 $forbidden = [

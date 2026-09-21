@@ -7,19 +7,33 @@ namespace App\NotificationPublisher\Domain\Model;
 use App\NotificationPublisher\Domain\Exception\ChannelAlreadyRequested;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Entity]
+#[ORM\Table(name: 'notifications')]
+#[ORM\Index(name: 'idx_notifications_user_id', columns: ['user_id'])]
 final class Notification
 {
     /** @var Collection<int, Delivery> */
+    #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'notification', cascade: ['persist'], orphanRemoval: true)]
     private Collection $deliveries;
+
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
     private function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'notification_id')]
         private readonly NotificationId $id,
+        #[ORM\Column(type: 'user_id', length: 64)]
         private readonly UserId $userId,
+        #[ORM\Column(type: 'idempotency_key', length: 128, unique: true)]
         private readonly IdempotencyKey $idempotencyKey,
+        #[ORM\Embedded(class: NotificationContent::class, columnPrefix: false)]
         private readonly NotificationContent $content,
+        #[ORM\Column]
         private readonly bool $requiresUserAction,
+        #[ORM\Column(type: 'datetime_immutable')]
         private readonly \DateTimeImmutable $createdAt,
     ) {
         $this->deliveries = new ArrayCollection();
