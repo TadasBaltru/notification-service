@@ -24,6 +24,8 @@ alwaysApply: false
 - Arrange / act / assert separated by a blank line; one behaviour per test; assert on outcome, not on
   call order. No `sleep()`, no real network, no random data without a seed.
 - Builders for aggregates live in `tests/Support/` (e.g. `NotificationBuilder::aNotification()->withChannels(...)`).
+- Every `WebTestCase` request is followed by `$this->assertResponseIsDocumented($client)` (trait
+  `App\Tests\Support\OpenApiAssertions`). An undocumented status or extra/missing JSON field is a failing test.
 - Every failure-semantics decision in `docs/DECISIONS.md` has exactly one test that encodes it; link the
   test in `docs/REQUIREMENTS_TRACE.md`.
 

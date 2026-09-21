@@ -14,6 +14,7 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | Xdebug via `.vscode/launch.json` port 9003, `/app -> ${workspaceFolder}`; `.env.local` is the switch (Compose `env_file`) | §1.6 |
 | Messenger + Doctrine transport = outbox without a broker; Mailer, HttpClient, Uid v7, Clock, RateLimiter on DBAL cache | §1.7 |
 | `symfony/notifier` rejected: its failover DSN hides the semantics we must design | §1.8 |
+| OpenAPI via NelmioApiDocBundle + Swagger UI; dump gated by PHPUnit; not a hand-written spec, not API Platform | §1.9 |
 | Channels/providers are parameters in `notifications.yaml`, env-overridable, validated at container build | §2.1 |
 | Provider ordering `priority` (default) or `round_robin`; same failover rules after the starting point | §2.2 |
 | Request flag is `requiresUserAction`; recipients resolved by a config-seeded stub resolver | §2.3 |

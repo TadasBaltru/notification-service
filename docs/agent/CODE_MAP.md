@@ -8,4 +8,5 @@ Columns: Path | Layer | Responsibility | Key public API | Covering test (`-` if 
 | Path | Layer | Responsibility | Key public API | Test |
 |---|---|---|---|---|
 | `src/Kernel.php` | framework | Symfony micro-kernel; loads `config/` | — | HealthEndpointTest |
-| `src/Controller/HealthController.php` | UserInterface (shared) | `GET /health` liveness probe used by the compose healthcheck | `__invoke(): JsonResponse` | HealthEndpointTest |
+| `src/Controller/HealthController.php` | UserInterface (shared) | `GET /health` liveness probe used by the compose healthcheck; OpenAPI template for later endpoints | `__invoke(): JsonResponse` | HealthEndpointTest |
+| `src/NotificationPublisher/UserInterface/Http/OpenApi/ProblemSchema.php` | UserInterface | RFC 7807 `Problem` schema; 1.3 error listener must emit this shape | `#[OA\Schema(schema: 'Problem')]` | OpenApiCoverageTest |

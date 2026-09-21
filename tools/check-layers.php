@@ -25,12 +25,16 @@ $forbidden = [
         'Symfony\\',
         'Doctrine\\',
         'Monolog\\',
+        'OpenApi\\',
+        'Nelmio\\',
         'App\\NotificationPublisher\\Application\\',
         'App\\NotificationPublisher\\Infrastructure\\',
         'App\\NotificationPublisher\\UserInterface\\',
     ],
     'Application' => [
         'Doctrine\\',
+        'OpenApi\\',
+        'Nelmio\\',
         'Symfony\\Component\\HttpFoundation\\',
         'Symfony\\Component\\HttpKernel\\',
         'Symfony\\Component\\Mailer\\',
@@ -55,7 +59,7 @@ foreach ($forbidden as $layer => $prefixes) {
         }
         $code = (string) file_get_contents($file->getPathname());
         preg_match_all('/^use\s+(?:function\s+|const\s+)?([A-Za-z0-9_\\\\]+)/m', $code, $uses);
-        preg_match_all('/(?<![A-Za-z0-9_\\\\$>])\\\\((?:Symfony|Doctrine|Monolog|App)\\\\[A-Za-z0-9_\\\\]+)/', $code, $inline);
+        preg_match_all('/(?<![A-Za-z0-9_\\\\$>])\\\\((?:Symfony|Doctrine|Monolog|App|OpenApi|Nelmio)\\\\[A-Za-z0-9_\\\\]+)/', $code, $inline);
         $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
         foreach ([...$uses[1], ...$inline[1]] as $import) {
             foreach ($allowed[$layer] ?? [] as $prefix) {
@@ -68,6 +72,27 @@ foreach ($forbidden as $layer => $prefixes) {
                     $errors[] = "{$relative}: {$layer} layer must not depend on {$import}";
                 }
             }
+        }
+    }
+}
+
+$srcRoot = "{$root}/src";
+$srcIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcRoot, FilesystemIterator::SKIP_DOTS));
+/** @var SplFileInfo $file */
+foreach ($srcIterator as $file) {
+    if ('php' !== $file->getExtension()) {
+        continue;
+    }
+    $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+    if (str_contains($relative, '/UserInterface/') || str_starts_with($relative, 'src/Controller/')) {
+        continue;
+    }
+    $code = (string) file_get_contents($file->getPathname());
+    preg_match_all('/^use\s+(?:function\s+|const\s+)?([A-Za-z0-9_\\\\]+)/m', $code, $uses);
+    preg_match_all('/(?<![A-Za-z0-9_\\\\$>])\\\\((?:OpenApi|Nelmio)\\\\[A-Za-z0-9_\\\\]+)/', $code, $inline);
+    foreach ([...$uses[1], ...$inline[1]] as $import) {
+        if (str_starts_with($import, 'OpenApi\\') || str_starts_with($import, 'Nelmio\\')) {
+            $errors[] = "{$relative}: OpenAPI attributes are a UserInterface concern; must not import {$import}";
         }
     }
 }

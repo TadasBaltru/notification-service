@@ -70,6 +70,8 @@ confirmed or amended in the phase that implements them and the change is noted i
 - `symfony/validator` + `symfony/serializer` + `property-access` + `property-info`: `#[MapRequestPayload]` DTOs.
 - `symfony/rate-limiter` with `cache.adapter.doctrine_dbal` storage so app and worker share the counters.
 - `symfony/monolog-bundle`: structured provider logs.
+- `nelmio/api-doc-bundle` (+ `symfony/twig-bundle`, `symfony/asset`): OpenAPI 3 spec and Swagger UI for evaluators
+  (DECISIONS §1.9). Twig/Asset are required only by the UI HTML route.
 - Dev: `dama/doctrine-test-bundle` (transaction rollback per test, mature, no fixture churn),
   `friendsofphp/php-cs-fixer`, `phpstan/*`.
 
@@ -77,6 +79,23 @@ confirmed or amended in the phase that implements them and the change is noted i
 - Notifier's `failover()` / `roundrobin()` transport DSNs hide exactly the behaviour the task asks us to design:
   per-attempt tracking, transient vs permanent vs unknown classification, no failover on unknown outcome.
 - Own thin `NotificationProvider` port instead; Notifier bridges could be wrapped as adapters later.
+
+### 1.9 API documentation: NelmioApiDocBundle (OpenAPI + Swagger UI)
+- Evaluators need to *exercise* the endpoints. `nelmio/api-doc-bundle` v5 serves Swagger UI at `/api/doc` and
+  the raw spec at `/api/doc.json`; a generated `docs/openapi.json` is importable into Postman/Insomnia.
+- Nelmio derives paths, methods and (later) `#[MapRequestPayload]` DTO constraints from the code. What can
+  still drift — response status codes, body fields, examples — is gated by PHPUnit: `OpenApiCoverageTest`
+  (every area route has an operation and a 2xx schema), `OpenApiSnapshotTest` (committed dump equals generated
+  spec), and `assertResponseIsDocumented()` on every `WebTestCase` request. Updating the docs is a failing
+  test, not a reminder.
+- Rejected: a hand-written `openapi.yaml` (no link to the code, drifts silently) and API Platform (imposes its
+  resource/serializer model on a handful of endpoints that return explicit arrays).
+- Twig + Asset exist only because the Swagger UI HTML route needs them; we have no application templates.
+- OpenAPI attributes live only in UserInterface (`src/Controller/` for the starter health probe,
+  `NotificationPublisher/UserInterface/` for the bounded context). `tools/check-layers.php` rejects `OpenApi\`
+  / `Nelmio\` anywhere else. Full JSON-Schema validation of responses (`opis/json-schema`) is a follow-up;
+  the trait checks status + required/declared body keys.
+- The docs route is unauthenticated in every environment so evaluators can use it out of the box.
 
 ## 2. Configuration model (*planned*, implemented in 2.1)
 

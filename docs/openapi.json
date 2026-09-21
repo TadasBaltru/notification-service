@@ -1,0 +1,51 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Notification Service",
+        "description": "Accept a notification with POST /notifications (HTTP 202). Delivery is asynchronous; poll GET /notifications/{id} for per-channel status and attempt history.\n",
+        "version": "0.1.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Relative to the host serving this application"
+        }
+    ],
+    "paths": {
+        "/health": {
+            "get": {
+                "tags": [
+                    "Operations"
+                ],
+                "summary": "Liveness check",
+                "operationId": "get_health",
+                "responses": {
+                    "200": {
+                        "description": "Service is up",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "status"
+                                    ],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Operations"
+        }
+    ]
+}

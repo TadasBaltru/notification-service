@@ -1,0 +1,23 @@
+---
+description: Keep OpenAPI/Swagger docs in sync with HTTP endpoints in the same edit batch
+globs: src/**/UserInterface/**,src/Controller/**,config/routes/**,config/packages/nelmio_api_doc.yaml
+alwaysApply: false
+---
+
+# OpenAPI moves with the HTTP surface
+
+A response the API can produce that Swagger UI does not show is a bug, and is tested like one.
+
+When a file matching these globs changes, the **same reply** must also:
+
+| Change | Same-reply update |
+|---|---|
+| New or changed route | `#[OA\...]` on the action + `docs/openapi.json` dump |
+| New or changed request DTO field | request schema / example on the DTO or `#[OA\RequestBody]` |
+| New or changed response field or status | `#[OA\Response]` or schema class + dump |
+| Example / summary / description only | dump `docs/openapi.json` (snapshot test will fail otherwise) |
+| Docs command or `/api/doc` route | `docs/agent/COMMANDS.md` |
+
+Every `WebTestCase` request is followed by `assertResponseIsDocumented($client)`.
+Regenerate: `docker compose exec -T app bin/console nelmio:apidoc:dump --format=json > docs/openapi.json`.
+Gates: `OpenApiCoverageTest`, `OpenApiSnapshotTest` (ordinary phpunit, not a separate command).

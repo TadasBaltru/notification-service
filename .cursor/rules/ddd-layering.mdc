@@ -32,6 +32,7 @@ Dependency rule (arrows = "may import"): `Domain <- Application <- Infrastructur
 ## UserInterface (`UserInterface/Http/`)
 - Controllers translate HTTP <-> Application commands only. Validation via DTO constraints; errors mapped to
   JSON problem responses. No repository access from controllers.
+- OpenAPI attributes (`OpenApi\`, `Nelmio\`) are a UserInterface concern; Domain and Application never import them.
 
 ```php
 // Bad: Domain depending on infrastructure

@@ -1,0 +1,18 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Notification Service
+            version: '%env(default:app_version_default:APP_VERSION)%'
+            description: >
+                Accept a notification with POST /notifications (HTTP 202). Delivery is asynchronous;
+                poll GET /notifications/{id} for per-channel status and attempt history.
+        servers:
+            - url: /
+              description: Relative to the host serving this application
+    areas:
+        default:
+            path_patterns:
+                - '^/health'
+                - '^/notifications'
+                - '^/users'
+            disable_default_routes: true

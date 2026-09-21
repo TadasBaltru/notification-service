@@ -199,3 +199,35 @@ final class FakeSmsProvider implements NotificationProvider
 ```
 Fakes are real services (demo providers) and the preferred double for our own port; `MockHttpClient` is used
 only for the external Twilio API.
+
+## R9 — Documented endpoint (from `src/Controller/HealthController.php`; skill fragment D3)
+```php
+use App\NotificationPublisher\UserInterface\Http\OpenApi\ProblemSchema;
+use Nelmio\ApiDocBundle\Attribute\Model;
+use OpenApi\Attributes as OA;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\Routing\Attribute\Route;
+
+#[Route('/health', name: 'health', methods: ['GET'])]
+#[OA\Tag(name: 'Operations')]
+#[OA\Get(summary: 'Liveness check')]
+#[OA\Response(
+    response: 200,
+    description: 'Service is up',
+    content: new OA\JsonContent(
+        required: ['status'],
+        properties: [new OA\Property(property: 'status', type: 'string', example: 'ok')],
+    ),
+)]
+#[OA\Response(
+    response: 422,
+    description: 'Request could not be processed',
+    content: new OA\JsonContent(ref: new Model(type: ProblemSchema::class)),
+)]
+public function __invoke(): JsonResponse
+{
+    return new JsonResponse(['status' => 'ok']);
+}
+```
+After changing attributes, dump `docs/openapi.json` and call `assertResponseIsDocumented($client)` in the
+endpoint's `WebTestCase`. The 422 example is the 1.3 pattern; `/health` itself only returns 200.

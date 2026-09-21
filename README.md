@@ -7,37 +7,97 @@ Symfony 7.4 LTS · PHP 8.4 · MariaDB 11.4
 
 ## Prerequisites
 
-[Docker](https://docs.docker.com/get-docker/) with Compose v2. Nothing else — PHP, Composer and
-the database all run in containers.
+- [Git](https://git-scm.com/downloads)
+- [Docker](https://docs.docker.com/get-docker/) with Compose v2 (Docker Desktop on Windows/macOS)
 
-## Start
+Do not install PHP or Composer on the host. Both run inside the `app` container.
+
+## Install
 
 ```sh
-make run
+git clone https://github.com/TadasBaltru/notification-service.git
+cd notification-service
+
+docker compose build --pull
+docker compose up -d --wait
 ```
 
-The first start builds the image and installs Composer dependencies into `vendor/`, so it takes a
-few minutes. Later starts are quick. `make` on its own lists every available command.
+That is the full install. The first `up`:
 
-## Verify it works
+- builds the PHP 8.4 / FrankenPHP image
+- runs `composer install` when `vendor/` is missing (entrypoint)
+- starts MariaDB and creates databases `app` and `app_test`
+
+`.env` is committed with local defaults (`HTTP_PORT=18080`, DB user/password `app`). No extra env file is required to boot.
+
+Re-install PHP packages later (container must be running):
+
+```sh
+docker compose exec -T app composer install --prefer-dist --no-interaction
+```
+
+Apply Doctrine migrations when they exist (safe if the list is still empty):
+
+```sh
+docker compose exec -T app bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+```
+
+If `make` is available: `make build` then `make run`. Full command table: `docs/agent/COMMANDS.md`.
+
+## How to run
+
+After install, from the project root:
+
+```sh
+docker compose up -d --wait
+```
+
+Health check:
 
 ```sh
 curl http://localhost:18080/health
 # {"status":"ok"}
 ```
 
-## Run the tests
+## API documentation
+
+Swagger UI (interactive, "Try it out"): [http://localhost:18080/api/doc](http://localhost:18080/api/doc)
+
+Raw OpenAPI 3 spec: [http://localhost:18080/api/doc.json](http://localhost:18080/api/doc.json)
+
+A generated copy lives at `docs/openapi.json` (import into Postman or Insomnia). Do not edit it by hand —
+change the `#[OA\...]` attributes on the controller and dump:
 
 ```sh
-make test
+docker compose exec -T app bin/console nelmio:apidoc:dump --format=json > docs/openapi.json
 ```
 
-Tests run against a separate `app_test` database. It is created (and granted to the `app` user) by
-`docker/mariadb/init.sql` the first time the database volume starts, and `make test` brings its schema up to
-date before PHPUnit (`make test-db` on its own does just that). Every test runs inside a transaction that
-`dama/doctrine-test-bundle` rolls back, so tests never leave data behind.
+The docs routes are unauthenticated in every environment so evaluators can use them out of the box. Behind a
+real gateway they would be restricted.
 
-Without `make` (Windows): `docker compose exec -T app vendor/bin/phpunit`, see `docs/agent/COMMANDS.md`.
+On Windows PowerShell use `curl.exe` (plain `curl` is an alias for `Invoke-WebRequest`), or open
+http://localhost:18080/health in a browser.
+
+Stop (volumes kept):
+
+```sh
+docker compose down
+```
+
+If `make` is available: `make run` / `make stop`.
+
+## Run the tests
+
+Stack must be up. Tests use a separate `app_test` database (created by `docker/mariadb/init.sql` on
+the first volume init). Every test runs in a transaction that `dama/doctrine-test-bundle` rolls back.
+
+```sh
+docker compose exec -T app bin/console doctrine:database:create --if-not-exists --env=test
+docker compose exec -T app bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=test
+docker compose exec -T app vendor/bin/phpunit
+```
+
+If `make` is available: `make test` (prepares `app_test` then runs PHPUnit). Filter: `make test ARGS="--filter SomeTest"`.
 
 ## Where to write your solution
 
@@ -57,15 +117,13 @@ to add any libraries or infrastructure your solution needs.
 ## Everyday commands
 
 ```sh
-make                                         # list every make command
-make build                                   # rebuild the images
-make stop                                    # stop
-make test ARGS="--filter SomeTest"           # run part of the suite
-
-docker compose exec app bin/console          # Symfony console
-docker compose exec app composer require ... # add a dependency
+docker compose build --pull                  # rebuild images
+docker compose exec -T app bin/console       # Symfony console
+docker compose exec -T app composer require ...  # add a dependency
 docker compose logs -f app                   # tail application logs
 docker compose down -v                       # stop and wipe the database
+
+make                                         # same shortcuts, if make is installed
 ```
 
 ## Database

@@ -105,3 +105,19 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
 - Verified this session: `HealthEndpointTest` against `app_test`; php-cs-fixer 0/8; phpstan OK; check-docs OK;
   check-layers OK; DBGp `init` from the container (`fileuri="file:///app/public/index.php"`) after
   `GET /health?XDEBUG_TRIGGER=1`.
+
+## Phase 0.7 — API documentation (OpenAPI + Swagger UI)
+- Proposed and accepted: NelmioApiDocBundle v5.12 + Swagger UI as the evaluator surface; coverage + snapshot +
+  per-response assertions so "docs always updated" is a failing test. DECISIONS numbered **§1.9** because §1.6
+  is already the debugger.
+- Rejected: hand-written `openapi.yaml` and API Platform (DECISIONS §1.9). Flex contrib recipe for Nelmio ignored
+  (`allow-contrib: false`) — bundle, `nelmio_api_doc.yaml` and routes registered by hand, same as dama on 0.1.
+- Verified / corrected against the running container:
+  - JSON UI controller is `nelmio_api_doc.controller.swagger`, **not** `swagger_json` (brief was wrong).
+  - Generator used in tests: `nelmio_api_doc.generator` (alias of `nelmio_api_doc.generator.default`). The locator
+    exists (`nelmio_api_doc.generator_locator`) but `->get('default')` is a phpstan-symfony false positive.
+  - `generate()` returns `OpenApi\Annotations\OpenApi` with `toJson()` / `jsonSerialize()`, **no** `toArray()`.
+  - Dump command: `nelmio:apidoc:dump --format=json`. Model attribute namespace: `Nelmio\ApiDocBundle\Attribute\Model`.
+  - `OpenApi\` allowed in `src/Controller/` (starter health probe) as well as `**/UserInterface/**`.
+  - phpunit `--filter "OpenApi|HealthEndpointTest"` → `OK (3 tests, 56 assertions)`.
+

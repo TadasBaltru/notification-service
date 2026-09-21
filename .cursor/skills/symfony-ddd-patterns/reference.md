@@ -381,3 +381,35 @@ final readonly class JsonExceptionListener
     }
 }
 ```
+
+## D3 — OpenAPI attributes (Nelmio 5 / swagger-php 6)
+
+```php
+use App\NotificationPublisher\UserInterface\Http\OpenApi\ProblemSchema;
+use Nelmio\ApiDocBundle\Attribute\Model;
+use OpenApi\Attributes as OA;
+
+#[OA\Tag(name: 'Notifications')]
+#[OA\Post(summary: 'Accept a notification')]
+#[OA\RequestBody(required: true, content: new OA\JsonContent(example: ['userId' => 'user-1']))]
+#[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
+#[OA\Response(
+    response: 202,
+    description: 'Accepted',
+    content: new OA\JsonContent(
+        required: ['id'],
+        properties: [new OA\Property(property: 'id', type: 'string', format: 'uuid')],
+    ),
+)]
+#[OA\Response(
+    response: 422,
+    description: 'Unprocessable',
+    content: new OA\JsonContent(ref: new Model(type: ProblemSchema::class)),
+)]
+```
+
+Schema classes live in `UserInterface/Http/OpenApi/` (`ProblemSchema` is the RFC 7807 error body). After edits:
+`nelmio:apidoc:dump --format=json > docs/openapi.json`. JSON route controller id is
+`nelmio_api_doc.controller.swagger` (not `swagger_json`). Generator service:
+`nelmio_api_doc.generator` (alias of `nelmio_api_doc.generator.default`; `generator_locator->get('default')` is a
+phpstan-symfony false positive). The document is `OpenApi\Annotations\OpenApi` with `toJson()`, not `toArray()`.

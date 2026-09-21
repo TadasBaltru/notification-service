@@ -21,6 +21,9 @@ with the stack up (`make run` / `docker compose up -d --wait`).
 | Symfony console | — | `docker compose exec -T app bin/console <cmd>` | e.g. `about`, `debug:container --tag=notification.provider`, `debug:messenger` |
 | DB shell | — | `docker compose exec database mariadb -uapp -papp app` | MariaDB prompt |
 | Composer | — | `docker compose exec -T app composer require --no-interaction <pkg>` | lock file updated; Flex recipes applied |
+| Dump OpenAPI spec | — | `docker compose exec -T app bin/console nelmio:apidoc:dump --format=json > docs/openapi.json` | overwrites `docs/openapi.json`; `OpenApiSnapshotTest` goes green |
+| Swagger UI | — | open `http://localhost:18080/api/doc` (or `curl.exe -s -o NUL -w "%{http_code}" http://localhost:18080/api/doc`) | HTML 200; "Try it out" on `GET /health` returns `{"status":"ok"}` |
+| OpenAPI JSON | — | `curl.exe -s http://localhost:18080/api/doc.json` | JSON with `"paths": { "/health": { "get": ... } }` |
 
 Notes
 - `-T` disables TTY allocation; required when the command is run by the agent or in CI.
