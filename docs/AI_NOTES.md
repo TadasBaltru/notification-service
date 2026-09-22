@@ -222,6 +222,25 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   `NOTIFICATIONS_EMAIL_PROVIDERS=smtp,fake_email`. `debug:container --tag=notification.provider` lists three
   services.
 
+## Phase 2.4 — Twilio SMS adapter
+- Proposed and accepted: `TwilioSmsProvider` posts `Messages.json` with basic auth and `timeout: 5.0`.
+  Credentials come from `TWILIO_*` (`ACtest` / `test-token` / `+15005550006` in `.env`). `getStatusCode()` plus
+  `toArray(false)` keep 4xx/5xx as data. `TwilioFailureClassifier`: 201 + `sid` success; 400 `21211`/`21614`
+  recipient permanent; any other 4xx (including `21212` invalid From) provider permanent; 429 and 5xx transient;
+  `TransportExceptionInterface`, or a 201 with no sid, unknown.
+- Rejected: treating every 400 as recipient-level. `21212` is the sender, so another provider may still deliver.
+  Rejected: calling `toArray()` without `false` (that throws `ClientException` / `ServerException` and would skip
+  classification).
+- Verified / corrected: official error pages (2026-09-22) title `21211` "Invalid 'To' Phone Number", `21614`
+  "'To' number is not a valid mobile number", `21212` "Invalid 'From' Number". The Message resource docs show
+  `POST /2010-04-01/Accounts/{AccountSid}/Messages.json`, basic auth, form fields `To`/`From`/`Body`, and a body
+  with `sid` (`status: queued`). That page did not print the HTTP status; 201 is the create status in the plan
+  and in Twilio's create-message success criterion. `MockHttpClient` moves `auth_basic` into
+  `normalized_headers['authorization']` before the callback, so the test asserts that header.
+  `cache:clear` OK. `debug:container --tag=notification.provider` lists four services.
+  Gate: phpunit `OK (88 tests, 592 assertions)`, php-cs-fixer `Found 0 of 117 files`, phpstan `[OK] No errors`,
+  `check-docs: OK (86 classes mapped)`, `check-layers: OK`.
+
 ## Mapping follow-up — ORM attributes on aggregates
 - Proposed and accepted: replace XML mapping with `#[ORM\Entity]` on Domain model classes. Reason: pragmatic DDD
   (aggregates as Doctrine entities) scales with the Symfony stack; XML was a second file per class.

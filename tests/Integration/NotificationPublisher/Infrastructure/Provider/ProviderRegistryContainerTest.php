@@ -8,6 +8,7 @@ use App\NotificationPublisher\Infrastructure\Provider\Email\SmtpMailerProvider;
 use App\NotificationPublisher\Infrastructure\Provider\Fake\FakeEmailProvider;
 use App\NotificationPublisher\Infrastructure\Provider\Fake\FakeSmsProvider;
 use App\NotificationPublisher\Infrastructure\Provider\ProviderRegistry;
+use App\NotificationPublisher\Infrastructure\Provider\Sms\TwilioSmsProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class ProviderRegistryContainerTest extends KernelTestCase
@@ -21,6 +22,7 @@ final class ProviderRegistryContainerTest extends KernelTestCase
         self::assertInstanceOf(FakeSmsProvider::class, $registry->get('fake_sms'));
         self::assertInstanceOf(FakeEmailProvider::class, $registry->get('fake_email'));
         self::assertInstanceOf(SmtpMailerProvider::class, $registry->get('smtp'));
-        self::assertEqualsCanonicalizing(['fake_email', 'fake_sms', 'smtp'], $registry->names());
+        self::assertInstanceOf(TwilioSmsProvider::class, $registry->get('twilio'));
+        self::assertEqualsCanonicalizing(['fake_email', 'fake_sms', 'smtp', 'twilio'], $registry->names());
     }
 }

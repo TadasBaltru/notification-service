@@ -103,11 +103,10 @@ confirmed or amended in the phase that implements them and the change is noted i
 ### 2.1 Channels and providers are configuration
 ```yaml
 # config/packages/notifications.yaml — values come from .env (csv / bool).
-# twilio is prepended to sms in 2.4.
 parameters:
   notifications.channels:
     email: { enabled: true, strategy: priority,    providers: ['smtp', 'fake_email'] }
-    sms:   { enabled: true, strategy: round_robin, providers: ['fake_sms'] }
+    sms:   { enabled: true, strategy: round_robin, providers: ['twilio', 'fake_sms'] }
   notifications.throttle: { limit: 300, interval: '1 hour' }
   notifications.recipients: { 'user-1': { email: 'user1@example.test', phone: '+37060000001' } }
 ```
@@ -154,10 +153,14 @@ handler maps the result once: `retryLater` → `RecoverableMessageHandlingExcept
 ### 3.2 Permanent failure
 - Recipient-level (invalid number / address, e.g. Twilio 21211 / 21614): no failover, delivery `failed`,
   `UnrecoverableMessageHandlingException`. Another provider cannot fix a wrong address.
-- Provider-level (401 / 403, misconfigured credentials): fail over once to the next provider, then stop.
+- Provider-level (401 / 403, or a Twilio 400 whose code is not 21211 / 21614, e.g. 21212 invalid `From`): fail over once to the next provider, then stop.
   The strategy keeps a counter. The second provider-level failure (or a list that ends on the first) returns
   `failed` and marks the delivery `failed`. A plain `continue` would keep walking three or more providers.
   If that one failover succeeds, the result is `sent`.
+- `TwilioSmsProvider` reads `$response->getStatusCode()` and `toArray(false)`, so a 4xx/5xx is a status, not a
+  `ClientException` / `ServerException`. 201 with a `sid` is success. 400 with Twilio `21211` or `21614` is
+  recipient-level. Any other 4xx is provider-level. 429 and 5xx are transient (§3.1). A
+  `TransportExceptionInterface` is unknown (§3.3), because the request may already have left.
 
 ### 3.3 Unknown outcome (timeout after the request was sent, dropped connection)
 - Record the attempt as `unknown`, **no same-run failover** (the message may have been delivered). The strategy
