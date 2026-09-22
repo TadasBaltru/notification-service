@@ -41,6 +41,13 @@ final class FakeProviderTest extends TestCase
         self::assertSame(0, $provider->sentCount());
     }
 
+    public function test_with_mode_can_use_a_distinct_name(): void
+    {
+        $provider = FakeSmsProvider::withMode(FakeMode::Success, 'fake_a');
+
+        self::assertSame('fake_a', $provider->name());
+    }
+
     public function test_success_records_the_outbound_message(): void
     {
         $provider = FakeSmsProvider::withMode(FakeMode::Success);

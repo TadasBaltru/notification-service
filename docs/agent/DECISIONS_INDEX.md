@@ -20,7 +20,7 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | Request flag is `requiresUserAction`; recipients resolved by a config-seeded stub resolver | §2.3 |
 | Unknown user or missing contact for a requested channel -> 422 at accept time; disabled -> `skipped` only once config exists (2.1) | §2.3 |
 | Transient -> next provider; all transient -> recoverable -> Messenger retry 5x (2 s x3 backoff, max 5 min) -> `failed` transport | §3.1 |
-| Permanent recipient-level -> stop, unrecoverable; permanent provider-level (401/403) -> fail over once | §3.2 |
+| Permanent recipient-level -> stop, delivery `failed`; permanent provider-level (401/403) -> one failover (counter), then `failed` | §3.2 |
 | Unknown outcome (timeout after send) -> attempt `unknown`, **no same-run failover**, retry later; at-least-once accepted | §3.3 |
 | Duplicate request -> unique `idempotency_key`, replay returns 200; redelivery -> handler no-ops when `sent`; attempt row `in_progress` before the call | §3.4 |
 | Disabled channel -> delivery `skipped`, never dispatched | §3.5 |

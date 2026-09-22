@@ -198,14 +198,19 @@ final class FakeSmsProvider implements NotificationProvider
     /** @var list<OutboundMessage> */
     private array $sent = [];
 
+    private string $name = 'fake_sms';
+
     public function __construct(
         #[Autowire('%env(FAKE_SMS_MODE)%')]
         private string $mode,
     ) {}
 
-    public static function withMode(FakeMode $mode): self
+    public static function withMode(FakeMode $mode, string $name = 'fake_sms'): self
     {
-        return new self($mode->value);
+        $provider = new self($mode->value);
+        $provider->name = $name;
+
+        return $provider;
     }
 
     public function send(OutboundMessage $message): ProviderResult
@@ -221,8 +226,9 @@ final class FakeSmsProvider implements NotificationProvider
 }
 ```
 `FakeMode` is `success|transient|permanent_recipient|permanent_provider|timeout`. `FakeEmailProvider` is the same
-shape with `fake_email` / `FAKE_EMAIL_MODE` / `invalid_address`. Fakes are real tagged services. Unit tests call
-`withMode()`; `ProviderRegistry::fromList()` avoids booting the container. `MockHttpClient` is only for Twilio.
+shape with `fake_email` / `FAKE_EMAIL_MODE` / `invalid_address`. Pass a second argument to `withMode()` when several
+fakes must share one registry. Fakes are real tagged services. Unit tests call `withMode()`;
+`ProviderRegistry::fromList()` avoids booting the container. `MockHttpClient` is only for Twilio.
 
 ## R9 — Documented endpoint (from `src/Controller/HealthController.php`; skill fragment D3)
 ```php

@@ -190,6 +190,19 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   check). `debug:container --tag=notification.provider` lists both fakes. `FAKE_SMS_MODE=transient` in `.env.local`
   made `FakeSmsProvider::send()` throw `TransientProviderFailure` with no code change; `.env.local` was reverted.
 
+## Phase 2.2 — Failover strategy
+- Proposed and accepted: `DeliveryResult` (`sent` / `retryLater` / `failed`) instead of throwing Messenger
+  exceptions inside the strategy. Phase 3.1 maps the result once. Provider-level permanent failure uses a
+  counter so a third provider is not called; a plain `continue` (the old skill fragment B3) would keep going.
+- Proposed and accepted: `ProviderDirectory` in Application, implemented by `ProviderRegistry`. The strategy
+  cannot typehint the registry: `check-layers` forbids Application → Infrastructure.
+- Rejected: `createMock(NotificationProvider::class)`. Tests use `FakeSmsProvider::withMode($mode, $name)` so
+  three fakes can share one registry. `beforeSend()` observes that the attempt is `in_progress` before `send()`.
+- Verified / corrected: skill fragment B3's `startAttempt($name, $now)` does not match `Delivery::startAttempt`,
+  which needs a `DeliveryAttemptId` (UUID v7). B3 was rewritten to the counter and the real signatures.
+  R08's proof no longer names `TwilioSmsProviderTest` (that class arrives in 2.4); the policy is encoded by
+  `FailoverDeliveryStrategyTest`.
+
 ## Mapping follow-up — ORM attributes on aggregates
 - Proposed and accepted: replace XML mapping with `#[ORM\Entity]` on Domain model classes. Reason: pragmatic DDD
   (aggregates as Doctrine entities) scales with the Symfony stack; XML was a second file per class.

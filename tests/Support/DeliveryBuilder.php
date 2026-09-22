@@ -22,6 +22,7 @@ final class DeliveryBuilder
     public const ATTEMPT_ID = '01990a2f-0000-7000-8000-000000000003';
 
     private Channel $channel = Channel::Sms;
+    private string $deliveryId = self::DELIVERY_ID;
     private ?string $markSentVia = null;
     private bool $markFailed = false;
     private bool $markSkipped = false;
@@ -65,6 +66,13 @@ final class DeliveryBuilder
         return $this;
     }
 
+    public function withId(string $deliveryId): self
+    {
+        $this->deliveryId = $deliveryId;
+
+        return $this;
+    }
+
     public function build(): Delivery
     {
         $now = new \DateTimeImmutable(self::NOW);
@@ -77,7 +85,7 @@ final class DeliveryBuilder
             $now,
         );
         $delivery = $notification->addDelivery(
-            DeliveryId::fromString(self::DELIVERY_ID),
+            DeliveryId::fromString($this->deliveryId),
             $this->channel,
             Recipient::fromString('+37060000001'),
             $now,

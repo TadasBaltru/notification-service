@@ -175,38 +175,45 @@ handler *throws* Recoverable/Unrecoverable to drive retries — the attempt rows
 (DECISIONS §3.6). Tests: `async: 'in-memory://'` in `when@test`, never `sync://` (it would run the delivery inside
 the command transaction and turn a provider failure into a rolled-back notification + HTTP 500).
 
-## B3 — Failover strategy skeleton
+## B3 — Failover strategy (from `FailoverDeliveryStrategy`)
 ```php
 final readonly class FailoverDeliveryStrategy
 {
-    public function __construct(private ChannelConfiguration $config, private ProviderRegistry $providers, private ClockInterface $clock) {}
+    public function __construct(
+        private ChannelConfiguration $channels,
+        private ProviderDirectory $providers, // port; ProviderRegistry implements it (Application must not import Infrastructure)
+        private ClockInterface $clock,
+    ) {}
 
     public function deliver(Delivery $delivery): DeliveryResult
     {
-        $ordered = $this->config->providersFor($delivery->channel(), $delivery->id());   // priority | round_robin
-        foreach ($ordered as $name) {
-            $provider = $this->providers->get($name);
-            $attempt = $delivery->startAttempt($name, $this->clock->now());
+        $providerFailovers = 0;
+        foreach ($this->channels->providersFor($delivery->channel(), $delivery->id()) as $name) {
+            $attempt = $delivery->startAttempt(DeliveryAttemptId::fromString(Uuid::v7()->toRfc4122()), $name, $this->clock->now());
             try {
-                $receipt = $provider->send($delivery->toOutboundMessage());
+                $receipt = $this->providers->get($name)->send($delivery->toOutboundMessage());
                 $delivery->completeAttempt($attempt, $receipt, $this->clock->now());
                 return DeliveryResult::sent($name);
             } catch (TransientProviderFailure $e) {
                 $delivery->failAttempt($attempt, AttemptOutcome::TransientFailure, $e, $this->clock->now());
-                continue;                                   // next provider
             } catch (UnknownProviderOutcome $e) {
                 $delivery->failAttempt($attempt, AttemptOutcome::Unknown, $e, $this->clock->now());
-                return DeliveryResult::retryLater($e);      // no same-run failover
+                return DeliveryResult::retryLater($e->getMessage()); // no same-run failover
             } catch (PermanentProviderFailure $e) {
                 $delivery->failAttempt($attempt, AttemptOutcome::PermanentFailure, $e, $this->clock->now());
-                if ($e->recipientLevel) { return DeliveryResult::failed($e); }
-                continue;                                   // provider-level (auth) -> try next once
+                if ($e->recipientLevel || $providerFailovers >= 1) {
+                    $delivery->markFailed($this->clock->now());
+                    return DeliveryResult::failed($e->getMessage()); // counter: one provider-level failover, then stop
+                }
+                ++$providerFailovers;
             }
         }
-        return DeliveryResult::retryLater(...);              // all transient/provider-level
+        return DeliveryResult::retryLater('All providers failed transiently');
     }
 }
 ```
+A plain `continue` on provider-level permanent failure keeps going when three or more providers are configured.
+Non-`pending`/`throttled` deliveries throw `DeliveryAlreadyFinal` before any attempt. `startAttempt` runs before `send`.
 
 ## C1 — Doctrine attribute mapping (ORM 3)
 `config/packages/doctrine.yaml`:

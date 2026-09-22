@@ -17,19 +17,33 @@ final class FakeSmsProvider implements NotificationProvider
     /** @var list<OutboundMessage> */
     private array $sent = [];
 
+    private string $name = 'fake_sms';
+
+    private ?\Closure $beforeSend = null;
+
     public function __construct(
         #[Autowire('%env(FAKE_SMS_MODE)%')]
         private string $mode,
     ) {}
 
-    public static function withMode(FakeMode $mode): self
+    public static function withMode(FakeMode $mode, string $name = 'fake_sms'): self
     {
-        return new self($mode->value);
+        $provider = new self($mode->value);
+        $provider->name = $name;
+
+        return $provider;
+    }
+
+    public function beforeSend(\Closure $beforeSend): self
+    {
+        $this->beforeSend = $beforeSend;
+
+        return $this;
     }
 
     public function name(): string
     {
-        return 'fake_sms';
+        return $this->name;
     }
 
     public function channel(): Channel
@@ -39,6 +53,10 @@ final class FakeSmsProvider implements NotificationProvider
 
     public function send(OutboundMessage $message): ProviderResult
     {
+        if (null !== $this->beforeSend) {
+            ($this->beforeSend)();
+        }
+
         $failure = FakeMode::from($this->mode)->failure($this->name(), 'invalid_number');
         if (null !== $failure) {
             throw $failure;

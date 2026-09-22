@@ -136,10 +136,16 @@ parameters:
   `SendNotificationHandler` marks deliveries for disabled channels `skipped` once `ChannelConfiguration` exists
   (2.1). Before that (1.3) every requested delivery is `pending`.
 
-## 3. Failure semantics (*planned*, encoded in `FailoverDeliveryStrategy` in 2.2, Messenger in 3.1)
+## 3. Failure semantics (strategy in 2.2; Messenger mapping still 3.1)
+
+`FailoverDeliveryStrategy` returns a `DeliveryResult` and does not throw for control flow. Attempts are recorded
+on the `Delivery` (`startAttempt` before the provider call, then `completeAttempt` / `failAttempt`). Phase 3.1's
+handler maps the result once: `retryLater` → `RecoverableMessageHandlingException`, `failed` →
+`UnrecoverableMessageHandlingException`.
 
 ### 3.1 Transient failure (5xx, 429, connection refused / DNS)
-- Try the next provider in order. If every provider fails transiently, the handler throws
+- Try the next provider in order. If every provider fails transiently, the strategy returns `retryLater` and
+  leaves the delivery `pending`. The handler (3.1) throws
   `RecoverableMessageHandlingException` and Messenger retries the whole delivery:
   `max_retries: 5, delay: 2000, multiplier: 3, max_delay: 300000` (2 s, 6 s, 18 s, 54 s, 162 s).
 - After the last retry the message lands in the `failed` transport and the delivery is marked `failed`.
@@ -149,10 +155,13 @@ parameters:
 - Recipient-level (invalid number / address, e.g. Twilio 21211 / 21614): no failover, delivery `failed`,
   `UnrecoverableMessageHandlingException`. Another provider cannot fix a wrong address.
 - Provider-level (401 / 403, misconfigured credentials): fail over once to the next provider, then stop.
+  The strategy keeps a counter. The second provider-level failure (or a list that ends on the first) returns
+  `failed` and marks the delivery `failed`. A plain `continue` would keep walking three or more providers.
+  If that one failover succeeds, the result is `sent`.
 
 ### 3.3 Unknown outcome (timeout after the request was sent, dropped connection)
-- Record the attempt as `unknown`, **no same-run failover** (the message may have been delivered), throw
-  recoverable so Messenger retries later.
+- Record the attempt as `unknown`, **no same-run failover** (the message may have been delivered). The strategy
+  returns `retryLater` and leaves the delivery `pending`; the handler (3.1) throws recoverable so Messenger retries later.
 - At-least-once delivery is accepted; exactly-once is not achievable with these providers. Mitigations:
   deterministic SMTP `Message-ID` derived from the delivery id, provider idempotency key where supported.
 - SMTP cannot tell us whether a `TransportException` happened before or after the message left: the adapter

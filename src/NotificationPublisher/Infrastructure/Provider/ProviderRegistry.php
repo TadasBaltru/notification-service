@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\NotificationPublisher\Infrastructure\Provider;
 
 use App\NotificationPublisher\Application\Exception\UnknownProvider;
+use App\NotificationPublisher\Application\Provider\ProviderDirectory;
 use App\NotificationPublisher\Domain\Port\NotificationProvider;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 #[Autoconfigure(public: true)]
-final readonly class ProviderRegistry
+final readonly class ProviderRegistry implements ProviderDirectory
 {
     /** @var array<string, NotificationProvider> */
     private array $byName;
