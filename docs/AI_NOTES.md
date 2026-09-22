@@ -203,6 +203,25 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   R08's proof no longer names `TwilioSmsProviderTest` (that class arrives in 2.4); the policy is encoded by
   `FailoverDeliveryStrategyTest`.
 
+## Phase 2.3 — SMTP provider
+- Proposed and accepted: inject `TransportInterface` (the `MAILER_DSN` transport), not `MailerInterface`.
+  `MailerInterface` routes through the message bus, so a later `SendEmailMessage` routing entry would send
+  asynchronously and transport errors would arrive as `HandlerFailedException`. `TransportInterface::send()`
+  returns a `SentMessage` on the calling thread. `Message-ID` is `<{deliveryId}@notifications.local>` and that
+  string is `provider_message_id`, so a redelivery after an unknown outcome is a duplicate an MTA can drop.
+- Proposed and accepted: `SmtpFailureClassifier` reads `TransportException::getDebug()`. Verified against
+  symfony/mailer 7.4 `AbstractStream` and `SmtpTransport::doSend`: client lines are `[timestamp] > COMMAND`,
+  server lines are `[timestamp] < REPLY`, and the message body is written with debug disabled. `DATA` is written
+  before the `354` reply. `> DATA` or `< 354` → `UnknownProviderOutcome`. A `4xx`/`5xx` reply to `RCPT TO` →
+  `PermanentProviderFailure` (recipient-level), including `450`. Any other pre-DATA failure, including a `5xx`
+  on `MAIL FROM` and an empty log, → `TransientProviderFailure`.
+- Rejected: treating every failure before `DATA`, including `RCPT TO` `550`, as transient. That was the earlier
+  §3.3 wording; a rejected address must not fail over to `fake_email`.
+- Verified by running it: `SmtpMailerProviderTest` on `null://null` captured one address, subject, and the same
+  `Message-ID` for two sends of one delivery id. `cache:clear` succeeded with
+  `NOTIFICATIONS_EMAIL_PROVIDERS=smtp,fake_email`. `debug:container --tag=notification.provider` lists three
+  services.
+
 ## Mapping follow-up — ORM attributes on aggregates
 - Proposed and accepted: replace XML mapping with `#[ORM\Entity]` on Domain model classes. Reason: pragmatic DDD
   (aggregates as Doctrine entities) scales with the Symfony stack; XML was a second file per class.

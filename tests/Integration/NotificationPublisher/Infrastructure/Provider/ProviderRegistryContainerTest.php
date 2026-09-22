@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\NotificationPublisher\Infrastructure\Provider;
 
+use App\NotificationPublisher\Infrastructure\Provider\Email\SmtpMailerProvider;
 use App\NotificationPublisher\Infrastructure\Provider\Fake\FakeEmailProvider;
 use App\NotificationPublisher\Infrastructure\Provider\Fake\FakeSmsProvider;
 use App\NotificationPublisher\Infrastructure\Provider\ProviderRegistry;
@@ -19,6 +20,7 @@ final class ProviderRegistryContainerTest extends KernelTestCase
 
         self::assertInstanceOf(FakeSmsProvider::class, $registry->get('fake_sms'));
         self::assertInstanceOf(FakeEmailProvider::class, $registry->get('fake_email'));
-        self::assertSame(['fake_email', 'fake_sms'], $registry->names());
+        self::assertInstanceOf(SmtpMailerProvider::class, $registry->get('smtp'));
+        self::assertEqualsCanonicalizing(['fake_email', 'fake_sms', 'smtp'], $registry->names());
     }
 }

@@ -24,7 +24,7 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | Unknown outcome (timeout after send) -> attempt `unknown`, **no same-run failover**, retry later; at-least-once accepted | §3.3 |
 | Duplicate request -> unique `idempotency_key`, replay returns 200; redelivery -> handler no-ops when `sent`; attempt row `in_progress` before the call | §3.4 |
 | Disabled channel -> delivery `skipped`, never dispatched | §3.5 |
-| SMTP `TransportException` before `DATA` -> transient, from `DATA` on -> unknown; HTTP transport errors always unknown | §3.3 |
+| SMTP debug: 4xx/5xx on `RCPT TO` -> permanent recipient; other pre-DATA failures -> transient; from `DATA` on -> unknown | §3.3 |
 | Two buses: `command.bus` with `doctrine_transaction` (outbox), `delivery.bus` without (handler flushes, then throws); tests use `in-memory://`, never `sync://` | §3.6 |
 | Three domain tables (1.2, no `notifications.status`) + `messenger_messages` (3.1, `auto_setup=0`) + `cache_items` (4.1); aggregates mapped with ORM attributes | §4 |
 | No users/contacts, providers/channels, templates or outbox tables | §4.1 |

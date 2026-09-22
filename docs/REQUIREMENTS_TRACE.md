@@ -11,7 +11,7 @@ Status values: `pending` (not started), `in progress` (phase running), `done` (i
 |---|---|---|---|---|---|
 | R01 | Send notifications through multiple channels (at least SMS and Email) | `Channel` enum; `Notification` expands one `Delivery` per requested channel; `POST /notifications` accepts `channels` | `NotificationTest`; `NotificationApiTest` | 1.1, 1.3 | in progress |
 | R02 | Channel / provider abstraction so new providers can be added | `NotificationProvider` port (Domain); `ProviderRegistry` plus adapters in Infrastructure | `ProviderRegistryTest`; `ProviderRegistryContainerTest` | 1.1, 2.1 | in progress |
-| R03 | At least two providers per channel | SMS: `FakeSmsProvider` (Twilio in 2.4); Email: `FakeEmailProvider` (SMTP in 2.3) | `debug:container --tag=notification.provider` lists the two fakes | 2.1, 2.3, 2.4 | in progress |
+| R03 | At least two providers per channel | SMS: `FakeSmsProvider` (Twilio in 2.4); Email: `SmtpMailerProvider`, `FakeEmailProvider` | `debug:container --tag=notification.provider` lists smtp, fake_email, fake_sms | 2.1, 2.3, 2.4 | in progress |
 | R04 | Failover: if one provider fails, use another | `FailoverDeliveryStrategy` | `FailoverDeliveryStrategyTest::test_it_fails_over_to_next_provider_on_transient_failure` | 2.2 | done |
 | R05 | Define how multiple providers are used (order / policy) | `ProviderOrdering` (`priority`, `round_robin`) chosen per channel in config | `ProviderOrderingTest` | 2.1 | in progress |
 | R06 | Notifications must not get lost; retry later when all providers fail | Messenger retry strategy + `failed` transport on `delivery.bus` (no transaction middleware, DECISIONS §3.6); `make retry-failed` | `DeliveryPipelineTest` all-fail scenario; manual `make failed` / `make retry-failed` | 3.1, 3.3, 3.4 | pending |
@@ -20,7 +20,7 @@ Status values: `pending` (not started), `in progress` (phase running), `done` (i
 | R09 | Document retries | `docs/DECISIONS.md` §3.1; `config/packages/messenger.yaml` | `debug:messenger`; `DeliveryPipelineTest` | 3.1 | pending |
 | R10 | Document failover | `docs/DECISIONS.md` §3.1-3.2; `FailoverDeliveryStrategy` | `FailoverDeliveryStrategyTest` | 2.2 | done |
 | R11 | Document duplicate requests | Unique `idempotency_key` (DB); replay returns existing (200) | `DoctrineNotificationRepositoryTest`; `NotificationApiTest::test_it_replays_the_same_idempotency_key_with_200` | 1.2, 1.3 | done |
-| R12 | Document duplicated delivery (at-least-once) | Handler no-op when delivery `sent`; deterministic SMTP `Message-ID` | `DeliverNotificationHandlerTest`; `SmtpMailerProviderTest` | 2.3, 3.1 | pending |
+| R12 | Document duplicated delivery (at-least-once) | Deterministic SMTP `Message-ID` on `SmtpMailerProvider` (handler no-op when the delivery is final is 3.1) | `SmtpMailerProviderTest` | 2.3, 3.1 | in progress |
 | R13 | Document unknown result handling | `docs/DECISIONS.md` §3.3 | see R07 | 2.2 | done |
 | R14 | Configuration: enable / disable channels | `notifications.channels.*.enabled`; disabled -> delivery `skipped` in `SendNotificationHandler`; nothing queued until 3.3 | `ChannelConfigurationTest`; `SendNotificationHandlerTest` | 2.1, 3.3 | in progress |
 | R15 | Configuration: multiple providers per channel | `notifications.channels.*.providers` list validated at container build by `ValidateChannelConfigurationPass` | `ChannelConfigurationTest::test_it_rejects_unknown_provider_name`; `cache:clear` with a typo fails | 2.1 | in progress |
@@ -37,6 +37,6 @@ Status values: `pending` (not started), `in progress` (phase running), `done` (i
 | R26 | State what was left out of scope and why | `docs/DECISIONS.md` §5 | review | 4.4 | pending |
 | R27 | AI note: tools used, for what, accepted / rejected, verified / corrected | `docs/AI_NOTES.md` per phase | review | every phase | pending (entries exist since 0.1) |
 | R28 | Meaningful git history showing the approach | One conventional commit per phase | `git log --oneline` reads as a story | every phase | pending |
-| R29 | Real provider where practical, no accounts required, no secrets committed | `SmtpMailerProvider` via `MAILER_DSN` (Mailpit locally); `TwilioSmsProvider` activatable via `TWILIO_*` in gitignored `.env.local` | `make send` shows mail in Mailpit; `TwilioSmsProviderTest` with `MockHttpClient` | 2.3, 2.4, 3.2 | pending |
+| R29 | Real provider where practical, no accounts required, no secrets committed | `SmtpMailerProvider` via `MAILER_DSN` (`null://null` until Mailpit in 3.2); Twilio via `TWILIO_*` in 2.4 | `SmtpMailerProviderTest` | 2.3, 2.4, 3.2 | in progress |
 | R30 | Extensibility: adding another channel (e.g. push) | `add-notification-provider` skill; README "Extending" section | dry-run the skill steps | 4.4 | pending |
 | R31 | Evaluators can discover and exercise every endpoint and see every response | Swagger UI `/api/doc`; generated `docs/openapi.json`; `ProblemSchema`; `#[OA\...]` on controllers | `OpenApiCoverageTest`, `OpenApiSnapshotTest`, `NotificationApiTest` (`assertResponseIsDocumented`) | 0.7, 1.3, 4.2 | in progress |

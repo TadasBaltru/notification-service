@@ -5,40 +5,52 @@ Rules: copy the fragment before writing boilerplate; keep each fragment <= 40 li
 checks inside such sections. When the real class exists (Day 1-2), replace the fragment with the real code and
 drop "template" from the heading so the checker starts guarding it. Longer variants: `.cursor/skills/*/reference.md`.
 
-## R1 — Provider adapter (template, replaced in 2.3/2.4; skill fragment A4/A5)
+## R1 — Provider adapter (from `src/NotificationPublisher/Infrastructure/Provider/Email/SmtpMailerProvider.php`; skill fragment A5)
 ```php
-#[AsTaggedItem(index: 'twilio')]
-final readonly class TwilioSmsProvider implements NotificationProvider
+#[AsTaggedItem(index: 'smtp')]
+final readonly class SmtpMailerProvider implements NotificationProvider
 {
     public function __construct(
-        private HttpClientInterface $httpClient,
-        #[Autowire('%env(TWILIO_ACCOUNT_SID)%')] private string $accountSid,
-        #[Autowire('%env(TWILIO_AUTH_TOKEN)%')] private string $authToken,
-        #[Autowire('%env(TWILIO_FROM)%')] private string $from,
-        private ClockInterface $clock,
+        private TransportInterface $transport,
+        private SmtpFailureClassifier $failures,
+        #[Autowire('%env(MAILER_FROM)%')]
+        private string $from,
     ) {}
 
-    public function name(): string { return 'twilio'; }
-    public function channel(): Channel { return Channel::Sms; }
-
-    public function send(Delivery $delivery, NotificationContent $content): ProviderResult
+    public function name(): string
     {
+        return 'smtp';
+    }
+
+    public function channel(): Channel
+    {
+        return Channel::Email;
+    }
+
+    public function send(OutboundMessage $message): ProviderResult
+    {
+        $messageId = \sprintf('%s@notifications.local', $message->deliveryId->value);
+        $email = (new Email())
+            ->from($this->from)
+            ->to($message->recipient->address())
+            ->subject($message->content->subject())
+            ->text($message->content->body());
+        $email->getHeaders()->addIdHeader('Message-ID', $messageId);
+
         try {
-            $response = $this->httpClient->request('POST', $this->url(), [/* auth_basic, body, timeout 5 */]);
-            $status = $response->getStatusCode(); // throws on transport error only when accessed
-        } catch (TransportExceptionInterface $e) {
-            throw new UnknownProviderOutcome($this->name(), $e->getMessage(), $e); // sent? unknown -> no failover
+            $this->transport->send($email);
+        } catch (TransportExceptionInterface $exception) {
+            $this->failures->classify($this->name(), $exception);
         }
-        return match (true) {
-            201 === $status => ProviderResult::accepted($response->toArray()['sid']),
-            429 === $status, $status >= 500 => throw TransientProviderFailure::fromStatus($this->name(), $status),
-            in_array($status, [401, 403], true) => throw PermanentProviderFailure::provider($this->name(), $status),
-            default => throw PermanentProviderFailure::recipient($this->name(), $this->errorCode($response)),
-        };
+
+        return ProviderResult::accepted(\sprintf('<%s>', $messageId));
     }
 }
 ```
-Register nothing by hand: the tag is collected by `#[AutowireIterator('notification.provider')]` in the registry.
+Inject `TransportInterface` (the `MAILER_DSN` transport), not `MailerInterface`. `SmtpFailureClassifier`
+(`src/NotificationPublisher/Infrastructure/Provider/Email/SmtpFailureClassifier.php`) reads
+`TransportException::getDebug()`. The tag is collected by `#[AutowireIterator('notification.provider')]`.
+Twilio replaces this fragment in 2.4 if the HTTP adapter is the clearer example.
 
 ## R2 — New channel (from `config/packages/notifications.yaml`; skill fragment C4)
 1. Add a case to `Channel` (`case Push = 'push';`) with its `recipientField()`.

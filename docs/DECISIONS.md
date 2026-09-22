@@ -102,17 +102,17 @@ confirmed or amended in the phase that implements them and the change is noted i
 
 ### 2.1 Channels and providers are configuration
 ```yaml
-# config/packages/notifications.yaml — 2.1 lists only providers that exist.
-# smtp is prepended in 2.3, twilio in 2.4. Values come from .env (csv / bool).
+# config/packages/notifications.yaml — values come from .env (csv / bool).
+# twilio is prepended to sms in 2.4.
 parameters:
   notifications.channels:
-    email: { enabled: true, strategy: priority,    providers: ['fake_email'] }
+    email: { enabled: true, strategy: priority,    providers: ['smtp', 'fake_email'] }
     sms:   { enabled: true, strategy: round_robin, providers: ['fake_sms'] }
   notifications.throttle: { limit: 300, interval: '1 hour' }
   notifications.recipients: { 'user-1': { email: 'user1@example.test', phone: '+37060000001' } }
 ```
 - Env overrides: `NOTIFICATIONS_SMS_PROVIDERS` / `NOTIFICATIONS_EMAIL_PROVIDERS` (csv), `NOTIFICATIONS_*_ENABLED`,
-  `MAILER_DSN`, `TWILIO_*`, `FAKE_SMS_MODE` / `FAKE_EMAIL_MODE` =
+  `MAILER_DSN`, `MAILER_FROM`, `TWILIO_*`, `FAKE_SMS_MODE` / `FAKE_EMAIL_MODE` =
   `success|transient|permanent_recipient|permanent_provider|timeout`.
 - Validated when the container is compiled (`ValidateChannelConfigurationPass` in `Kernel::build()`, not in a
   service constructor): unknown channel, unknown strategy, unknown provider name, or an enabled channel with an
@@ -164,10 +164,13 @@ handler maps the result once: `retryLater` → `RecoverableMessageHandlingExcept
   returns `retryLater` and leaves the delivery `pending`; the handler (3.1) throws recoverable so Messenger retries later.
 - At-least-once delivery is accepted; exactly-once is not achievable with these providers. Mitigations:
   deterministic SMTP `Message-ID` derived from the delivery id, provider idempotency key where supported.
-- SMTP cannot tell us whether a `TransportException` happened before or after the message left: the adapter
-  classifies by the transport debug log — a failure before the `DATA` command (connect, EHLO, AUTH, `MAIL FROM`,
-  `RCPT TO`) is transient, anything from `DATA` onwards is unknown. HTTP providers are simpler: a
-  `TransportExceptionInterface` (timeout, dropped connection) is always unknown, an HTTP status is never.
+- SMTP cannot tell us whether a `TransportException` happened before or after the message left. The adapter
+  classifies from `TransportException::getDebug()` (Symfony 7.4 dialogue: `[timestamp] > COMMAND` /
+  `[timestamp] < REPLY`; the body is not logged). A `4xx`/`5xx` reply to `RCPT TO` is
+  `PermanentProviderFailure` (recipient-level): another provider cannot fix a rejected address. Any other
+  failure before `DATA` (connect, EHLO, AUTH, `MAIL FROM`, empty debug) is `TransientProviderFailure`. Once
+  `DATA` was sent (`> DATA` or reply `354`) the outcome is `UnknownProviderOutcome`. HTTP providers are simpler:
+  a `TransportExceptionInterface` (timeout, dropped connection) is always unknown, an HTTP status is never.
 
 ### 3.4 Duplicates
 - Duplicate HTTP request: `idempotency_key` is unique; a replay returns the existing notification with 200.
