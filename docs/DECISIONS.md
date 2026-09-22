@@ -102,18 +102,21 @@ confirmed or amended in the phase that implements them and the change is noted i
 
 ### 2.1 Channels and providers are configuration
 ```yaml
-# config/packages/notifications.yaml
+# config/packages/notifications.yaml — 2.1 lists only providers that exist.
+# smtp is prepended in 2.3, twilio in 2.4. Values come from .env (csv / bool).
 parameters:
   notifications.channels:
-    email: { enabled: true, strategy: priority,    providers: ['smtp', 'fake_email'] }
-    sms:   { enabled: true, strategy: round_robin, providers: ['twilio', 'fake_sms'] }
+    email: { enabled: true, strategy: priority,    providers: ['fake_email'] }
+    sms:   { enabled: true, strategy: round_robin, providers: ['fake_sms'] }
   notifications.throttle: { limit: 300, interval: '1 hour' }
   notifications.recipients: { 'user-1': { email: 'user1@example.test', phone: '+37060000001' } }
 ```
 - Env overrides: `NOTIFICATIONS_SMS_PROVIDERS` / `NOTIFICATIONS_EMAIL_PROVIDERS` (csv), `NOTIFICATIONS_*_ENABLED`,
-  `MAILER_DSN`, `TWILIO_*`, `FAKE_SMS_MODE` / `FAKE_EMAIL_MODE` = `success|transient|permanent|timeout`.
-- Validated at container build (`ChannelConfiguration`): unknown provider name or an enabled channel with an empty
-  provider list fails `cache:clear` with a clear message. Misconfiguration must not reach runtime.
+  `MAILER_DSN`, `TWILIO_*`, `FAKE_SMS_MODE` / `FAKE_EMAIL_MODE` =
+  `success|transient|permanent_recipient|permanent_provider|timeout`.
+- Validated when the container is compiled (`ValidateChannelConfigurationPass` in `Kernel::build()`, not in a
+  service constructor): unknown channel, unknown strategy, unknown provider name, or an enabled channel with an
+  empty provider list fails `cache:clear` with `InvalidChannelConfiguration`. Misconfiguration must not reach runtime.
 
 ### 2.2 Provider ordering strategy answers "define how providers are used"
 - `priority` (default): always start with the first provider, fail over down the list.

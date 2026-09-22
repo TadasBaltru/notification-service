@@ -174,6 +174,22 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   - TRACE: no 1.1–1.3 row was still `pending`. R22 promoted to `done` (`check-layers` + XML mapping).
     R01/R02/R17/R19/R23/R31 stay `in progress` (providers, e2e send, tracking polish, later tests).
 
+## Phase 2.1 — Channel configuration, provider registry and fake providers
+- Proposed and accepted: validation in `ValidateChannelConfigurationPass` (`Kernel::build()`), not in
+  `ChannelConfiguration`'s constructor. A constructor check runs only when the service is created, so `cache:clear`
+  can succeed and the bad config reaches a request. The pass calls `resolveEnvPlaceholders(..., true)` so a typo in
+  `NOTIFICATIONS_*_PROVIDERS` fails compilation. Trade-off: changing those env vars requires a cache rebuild.
+- Proposed and accepted: `_instanceof` tags `NotificationProvider` so the Domain port stays free of Symfony
+  attributes; each fake carries `#[AsTaggedItem(index: ...)]`. The registry prefers that iterator key and falls
+  back to `name()` for `fromList()`. `#[Autoconfigure(public: true)]` on the registry keeps the tagged fakes
+  from being removed as unused before 2.2 injects them.
+- Rejected: `defaultIndexMethod: 'name'` (that option requires a static method). Rejected listing `smtp` / `twilio`
+  in this phase's config (the compiler pass would fail until those adapters exist).
+- Verified: `cache:clear` with `NOTIFICATIONS_SMS_PROVIDERS=fake_smss` exits 1 with
+  `Unknown provider "fake_smss" configured for channel "sms".` (`--no-warmup` does not compile, so it does not
+  check). `debug:container --tag=notification.provider` lists both fakes. `FAKE_SMS_MODE=transient` in `.env.local`
+  made `FakeSmsProvider::send()` throw `TransientProviderFailure` with no code change; `.env.local` was reverted.
+
 ## Mapping follow-up — ORM attributes on aggregates
 - Proposed and accepted: replace XML mapping with `#[ORM\Entity]` on Domain model classes. Reason: pragmatic DDD
   (aggregates as Doctrine entities) scales with the Symfony stack; XML was a second file per class.

@@ -40,13 +40,17 @@ final readonly class TwilioSmsProvider implements NotificationProvider
 ```
 Register nothing by hand: the tag is collected by `#[AutowireIterator('notification.provider')]` in the registry.
 
-## R2 — New channel (template, replaced in 2.1; skill fragment C4)
-1. Add a case to `Channel` enum (`case Push = 'push';`) with its `recipientField()` behaviour.
-2. Add the channel block to `config/packages/notifications.yaml`:
-   `push: { enabled: false, strategy: priority, providers: ['fake_push'] }`.
-3. Add at least one adapter (R1) tagged with the channel; `ChannelConfiguration` validation fails
-   `cache:clear` until every listed provider name exists.
-4. Tests: enum unit test, configuration validation test, one end-to-end test through `tests/Support/DeliveryPipeline`.
+## R2 — New channel (from `config/packages/notifications.yaml`; skill fragment C4)
+1. Add a case to `Channel` (`case Push = 'push';`) with its `recipientField()`.
+2. Add the channel to `config/packages/notifications.yaml` and the `.env` defaults
+   `NOTIFICATIONS_PUSH_ENABLED` / `NOTIFICATIONS_PUSH_PROVIDERS` (csv). Only list providers that exist.
+3. Add an adapter (R8 or R1) with `#[AsTaggedItem(index: 'fake_push')]`. `_instanceof` in
+   `config/services.yaml` adds the `notification.provider` tag; the Domain port stays attribute-free.
+4. `ValidateChannelConfigurationPass` (registered in `Kernel::build()`) rejects an unknown channel,
+   unknown strategy, unknown provider name, or an enabled channel with an empty list.
+   `cache:clear` fails with `InvalidChannelConfiguration` before a request is served.
+5. Tests: `ChannelConfigurationTest` for each rejection; tag check via
+   `bin/console debug:container --tag=notification.provider`.
 
 ## R3 — Messenger message + handler (template, replaced in 3.1; skill fragment B1/B2)
 ```php
@@ -186,35 +190,39 @@ Runs against `app_test`; `dama/doctrine-test-bundle` rolls the transaction back 
 Replay of the same `idempotencyKey` is 200 with the same `id`. Messenger `async` is still unused (3.1); do not
 dispatch `DeliverNotification` yet.
 
-## R8 — Fake provider with a mode (template, replaced in 2.1; skill fragment A3/T2)
+## R8 — Fake provider with a mode (from `src/NotificationPublisher/Infrastructure/Provider/Fake/FakeSmsProvider.php`; skill fragment A3/T2)
 ```php
-enum FakeMode: string { case Success = 'success'; case Transient = 'transient'; case PermanentRecipient = 'permanent_recipient'; case PermanentProvider = 'permanent_provider'; case Timeout = 'timeout'; }
-
 #[AsTaggedItem(index: 'fake_sms')]
 final class FakeSmsProvider implements NotificationProvider
 {
-    /** @var list<Delivery> */ private array $sent = [];
+    /** @var list<OutboundMessage> */
+    private array $sent = [];
 
-    public function __construct(#[Autowire('%env(default:fake_sms_default:FAKE_SMS_MODE)%')] private string $mode) {}
+    public function __construct(
+        #[Autowire('%env(FAKE_SMS_MODE)%')]
+        private string $mode,
+    ) {}
 
-    public static function withMode(FakeMode $mode): self { return new self($mode->value); }
-
-    public function send(Delivery $delivery, NotificationContent $content): ProviderResult
+    public static function withMode(FakeMode $mode): self
     {
-        return match (FakeMode::from($this->mode)) {
-            FakeMode::Success => $this->record($delivery),
-            FakeMode::Transient => throw TransientProviderFailure::fromStatus($this->name(), 503),
-            FakeMode::PermanentRecipient => throw PermanentProviderFailure::recipient($this->name(), 'invalid_number'),
-            FakeMode::PermanentProvider => throw PermanentProviderFailure::provider($this->name(), 401),
-            FakeMode::Timeout => throw new UnknownProviderOutcome($this->name(), 'simulated timeout'),
-        };
+        return new self($mode->value);
     }
 
-    public function sentCount(): int { return count($this->sent); }
+    public function send(OutboundMessage $message): ProviderResult
+    {
+        $failure = FakeMode::from($this->mode)->failure($this->name(), 'invalid_number');
+        if (null !== $failure) {
+            throw $failure;
+        }
+        $this->sent[] = $message;
+
+        return ProviderResult::accepted(sprintf('%s:%s', $this->name(), $message->deliveryId->value));
+    }
 }
 ```
-Fakes are real services (demo providers) and the preferred double for our own port; `MockHttpClient` is used
-only for the external Twilio API.
+`FakeMode` is `success|transient|permanent_recipient|permanent_provider|timeout`. `FakeEmailProvider` is the same
+shape with `fake_email` / `FAKE_EMAIL_MODE` / `invalid_address`. Fakes are real tagged services. Unit tests call
+`withMode()`; `ProviderRegistry::fromList()` avoids booting the container. `MockHttpClient` is only for Twilio.
 
 ## R9 — Documented endpoint (from `src/Controller/HealthController.php`; skill fragment D3)
 ```php

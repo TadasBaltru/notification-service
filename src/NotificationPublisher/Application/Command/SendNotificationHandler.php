@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NotificationPublisher\Application\Command;
 
+use App\NotificationPublisher\Application\Configuration\ChannelConfiguration;
 use App\NotificationPublisher\Domain\Exception\ChannelContactNotFound;
 use App\NotificationPublisher\Domain\Model\Channel;
 use App\NotificationPublisher\Domain\Model\DeliveryId;
@@ -25,6 +26,7 @@ final readonly class SendNotificationHandler
     public function __construct(
         private NotificationRepository $notifications,
         private RecipientResolver $recipients,
+        private ChannelConfiguration $channels,
         private ClockInterface $clock,
     ) {}
 
@@ -54,12 +56,15 @@ final readonly class SendNotificationHandler
             $now,
         );
         foreach ($resolved as [$channel, $recipient]) {
-            $notification->addDelivery(
+            $delivery = $notification->addDelivery(
                 DeliveryId::fromString(Uuid::v7()->toRfc4122()),
                 $channel,
                 $recipient,
                 $now,
             );
+            if (!$this->channels->isEnabled($channel)) {
+                $delivery->markSkipped($now);
+            }
         }
 
         $this->notifications->save($notification);

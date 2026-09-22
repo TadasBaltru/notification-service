@@ -7,7 +7,7 @@ Columns: Path | Layer | Responsibility | Key public API | Covering test (`-` if 
 
 | Path | Layer | Responsibility | Key public API | Test |
 |---|---|---|---|---|
-| `src/Kernel.php` | framework | Symfony micro-kernel; loads `config/` | — | HealthEndpointTest |
+| `src/Kernel.php` | framework | Symfony micro-kernel; loads `config/`; registers channel validation | `build(ContainerBuilder): void` | HealthEndpointTest |
 | `src/Controller/HealthController.php` | UserInterface (shared) | `GET /health` liveness probe used by the compose healthcheck; OpenAPI template for later endpoints | `__invoke(): JsonResponse` | HealthEndpointTest |
 | `src/NotificationPublisher/UserInterface/Http/OpenApi/ProblemSchema.php` | UserInterface | RFC 7807 `Problem` body (`type`, `title`, `status`, `detail`, `violations`) | `__construct(string $type, string $title, int $status, ?string $detail, array $violations)` | OpenApiCoverageTest, NotificationApiTest |
 | `src/NotificationPublisher/UserInterface/Http/OpenApi/ProblemViolationSchema.php` | UserInterface | One validation violation in a `Problem` body | `__construct(string $propertyPath, string $message)` | OpenApiCoverageTest, NotificationApiTest |
@@ -63,9 +63,21 @@ Columns: Path | Layer | Responsibility | Key public API | Covering test (`-` if 
 | `src/NotificationPublisher/Infrastructure/Persistence/Doctrine/Type/IdempotencyKeyType.php` | Infrastructure | DBAL type `idempotency_key` | `convertToPHPValue`; `convertToDatabaseValue` | DoctrineNotificationRepositoryTest |
 | `src/NotificationPublisher/Infrastructure/Persistence/Doctrine/Type/RecipientType.php` | Infrastructure | DBAL type `recipient` | `convertToPHPValue`; `convertToDatabaseValue` | DoctrineNotificationRepositoryTest |
 | `src/NotificationPublisher/Infrastructure/Identity/InMemoryRecipientResolver.php` | Infrastructure | Config-seeded identity-service stub | `resolve(UserId, Channel): Recipient` | InMemoryRecipientResolverTest |
+| `src/NotificationPublisher/Infrastructure/Provider/Fake/FakeMode.php` | Infrastructure | Env mode for demo providers | `failure(string, string): ?ProviderFailure` | FakeProviderTest |
+| `src/NotificationPublisher/Infrastructure/Provider/Fake/FakeSmsProvider.php` | Infrastructure | Tagged SMS demo provider; records sent messages | `name()`; `channel()`; `send(OutboundMessage): ProviderResult`; `withMode(FakeMode): self` | FakeProviderTest |
+| `src/NotificationPublisher/Infrastructure/Provider/Fake/FakeEmailProvider.php` | Infrastructure | Tagged email demo provider; records sent messages | `name()`; `channel()`; `send(OutboundMessage): ProviderResult`; `withMode(FakeMode): self` | FakeProviderTest |
+| `src/NotificationPublisher/Infrastructure/Provider/ProviderRegistry.php` | Infrastructure | Tagged providers keyed by `AsTaggedItem` index; `fromList()` for unit tests | `get(string): NotificationProvider`; `names(): list<string>`; `fromList(list): self` | ProviderRegistryTest, ProviderRegistryContainerTest |
+| `src/NotificationPublisher/Infrastructure/DependencyInjection/ValidateChannelConfigurationPass.php` | Infrastructure | Fails container build on a bad channel map | `process(ContainerBuilder): void` | ProviderRegistryContainerTest |
 | `src/NotificationPublisher/Application/Command/SendNotification.php` | Application | Intent to accept a notification | `__construct(userId, idempotencyKey, channels, subject, body, requiresUserAction, recipientEmail, recipientPhone)` | NotificationApiTest |
 | `src/NotificationPublisher/Application/Command/SendNotificationResult.php` | Application | Handler result: aggregate + created vs replay | `__construct(Notification $notification, bool $created)` | NotificationApiTest |
-| `src/NotificationPublisher/Application/Command/SendNotificationHandler.php` | Application | Idempotency, recipient resolution, pending deliveries | `__invoke(SendNotification): SendNotificationResult` | NotificationApiTest |
+| `src/NotificationPublisher/Application/Command/SendNotificationHandler.php` | Application | Idempotency, recipient resolution; disabled channel stored `skipped` | `__invoke(SendNotification): SendNotificationResult` | NotificationApiTest, SendNotificationHandlerTest |
+| `src/NotificationPublisher/Application/Exception/ApplicationException.php` | Application | Layer base for application errors | extends `\RuntimeException` | - |
+| `src/NotificationPublisher/Application/Exception/InvalidChannelConfiguration.php` | Application | Channel map rejected at container build | `unknownChannel/unknownStrategy/noProviders/unknownProvider` | ChannelConfigurationTest |
+| `src/NotificationPublisher/Application/Exception/UnknownProvider.php` | Application | Registry asked for a name it does not have | `named(string): self` | ProviderRegistryTest |
+| `src/NotificationPublisher/Application/Ordering/ProviderOrdering.php` | Application | How a channel's provider list is rotated before failover | `order(list<string>, DeliveryId): list<string>` | ProviderOrderingTest |
+| `src/NotificationPublisher/Application/Ordering/PriorityOrdering.php` | Application | Always start at the first configured provider | `order(list<string>, DeliveryId): list<string>` | ProviderOrderingTest |
+| `src/NotificationPublisher/Application/Ordering/RoundRobinOrdering.php` | Application | Start at a stable hash of the delivery id, then walk the list | `order(list<string>, DeliveryId): list<string>` | ProviderOrderingTest |
+| `src/NotificationPublisher/Application/Configuration/ChannelConfiguration.php` | Application | Enabled flag and ordered provider names per channel | `fromArray(array, ?list): self`; `isEnabled(Channel): bool`; `providersFor(Channel, DeliveryId): list<string>` | ChannelConfigurationTest, SendNotificationHandlerTest |
 | `src/NotificationPublisher/Application/Query/GetNotificationStatus.php` | Application | Read notification by id | `__construct(string $id)` | NotificationApiTest |
 | `src/NotificationPublisher/Application/Query/GetNotificationStatusHandler.php` | Application | Load aggregate for GET status | `__invoke(GetNotificationStatus): Notification` | NotificationApiTest |
 | `src/NotificationPublisher/UserInterface/Http/Request/SendNotificationRequest.php` | UserInterface | POST body DTO with Validator constraints | `toCommand(): SendNotification` | NotificationApiTest |

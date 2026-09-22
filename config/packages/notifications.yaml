@@ -1,4 +1,16 @@
 parameters:
+    notifications.channels:
+        email:
+            enabled: '%env(bool:NOTIFICATIONS_EMAIL_ENABLED)%'
+            strategy: priority
+            providers: '%env(csv:NOTIFICATIONS_EMAIL_PROVIDERS)%'
+        sms:
+            enabled: '%env(bool:NOTIFICATIONS_SMS_ENABLED)%'
+            strategy: round_robin
+            providers: '%env(csv:NOTIFICATIONS_SMS_PROVIDERS)%'
+    notifications.throttle:
+        limit: 300
+        interval: '1 hour'
     notifications.recipients:
         user-1:
             email: 'user1@example.test'

@@ -28,6 +28,9 @@ with the stack up (`make run` / `docker compose up -d --wait`).
 Notes
 - `-T` disables TTY allocation; required when the command is run by the agent or in CI.
 - PHPStan needs the dev container dump (`var/cache/dev/App_KernelDevDebugContainer.xml`); `make phpstan` warms it up.
+- `bin/console debug:container --tag=notification.provider` lists `FakeEmailProvider` and `FakeSmsProvider`.
+- `bin/console cache:clear` (with warmup) fails if a provider name is unknown:
+  `Unknown provider "fake_smss" configured for channel "sms".` (`--no-warmup` skips compilation and does not check).
 - `check-docs` treats RECIPES sections whose heading contains "template" as unverified and skips them.
 - Compose reads `.env` for interpolation and passes `.env.local` (if present) into the app container via `env_file`;
   the MariaDB init script only runs when the `database_data` volume is created.
