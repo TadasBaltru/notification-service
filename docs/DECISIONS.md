@@ -20,7 +20,10 @@ confirmed or amended in the phase that implements them and the change is noted i
   official Symfony Docker template uses it.
 - Worker mode (kernel stays booted) is a throughput win but adds state-leak risk; **not enabled** here because
   the assignment gains nothing from it. Documented as a production option.
-- The Messenger consumer is a separate `messenger:consume` process regardless of the web runtime.
+- The Messenger consumer is a separate `messenger:consume` process regardless of the web runtime. The image
+  healthchecks Caddy on `:2019/metrics`, which the consumer does not serve. The `worker` service replaces it
+  with a process check (`ps | grep messenger:consume`): `docker compose up --wait` fails a service that has
+  no healthcheck at all.
 
 ### 1.3 PHPStan level 8 with extensions
 - Level 8 adds nullable strictness (calling methods on possibly-null values), the bug class that bites in
@@ -58,9 +61,12 @@ confirmed or amended in the phase that implements them and the change is noted i
 - Xdebug 3 ships in the dev image (`xdebug.start_with_request=trigger`, `client_host=host.docker.internal`).
   Added: `.vscode/launch.json` ("Listen for Xdebug", port 9003, `pathMappings {"/app": "${workspaceFolder}"}`),
   `.env.local.dist` with `XDEBUG_MODE=debug`, `make test-debug` (`XDEBUG_TRIGGER=1` for CLI).
-- `.env.local` is passed to the app container through Compose `env_file` (`required: false`). Compose does not
+- `.env.local` is passed to the app and worker through Compose `env_file` (`required: false`). Compose does not
   read `.env.local` on its own and Xdebug reads `XDEBUG_MODE` at PHP start-up, so without this wiring the file
-  would be a no-op. A Compose `environment:` entry would override the file even when unset, so none is declared.
+  would be a no-op. A Compose `environment:` entry overrides `env_file` for the same key even when empty, so
+  `XDEBUG_MODE` is not declared there. The only `environment:` key is `RUN_MIGRATIONS=1` on `app` (the worker
+  must not migrate). That name is not in `.env.local`, so the two mechanisms do not clash. Do not put
+  `MAILER_DSN` in `.env.local`: `env_file` injects a real variable, which wins over `.env.test`'s `null://null`.
 
 ### 1.7 Runtime dependencies (why each)
 - `symfony/messenger` + `symfony/doctrine-messenger`: async delivery, retry/backoff, failure transport. The

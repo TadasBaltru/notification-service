@@ -13,6 +13,11 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 	fi
 
 	mkdir -p var/cache var/log
+
+	# App sets RUN_MIGRATIONS=1. The worker leaves it unset so it cannot race the schema.
+	if [ "${RUN_MIGRATIONS:-0}" = "1" ]; then
+		bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+	fi
 fi
 
 exec docker-php-entrypoint "$@"

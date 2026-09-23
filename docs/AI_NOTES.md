@@ -262,6 +262,11 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   Gate: phpunit `OK (93 tests, 684 assertions)`, php-cs-fixer `Found 0 of 122 files`, phpstan `[OK] No errors`,
   `check-docs: OK (88 classes mapped)`, `check-layers: OK`.
 
+## Phase 3.2 — Worker and Mailpit
+- Proposed and accepted: `worker` uses the same dev image and volume, command `messenger:consume async --time-limit=3600 --memory-limit=256M -vv`, `restart: unless-stopped`, `depends_on` app healthy and Mailpit started. `RUN_MIGRATIONS=1` is the only Compose `environment:` key, and only on `app`. Dev `MAILER_DSN=smtp://mailpit:1025`; `.env.test` keeps `null://null`.
+- Rejected: `healthcheck.disable: true`. This Compose version then fails `up --wait` with "has no healthcheck configured". Rejected putting `MAILER_DSN` in `.env.local`, because `env_file` would override `.env.test` for PHPUnit. Rejected `curl.exe -d "{...}"` in PowerShell (it strips the quotes and curl treats `[` as a range).
+- Verified / corrected: the FrankenPHP image healthchecks `http://localhost:2019/metrics`, so the worker replaces it with `ps | grep messenger:consume`. `docker/entrypoint.sh` is copied into the image, so the migration hook needs a rebuild. App log: `Already at the latest version ("DoctrineMigrations\Version20260923110356")` before FrankenPHP starts; the worker log does not migrate. `debug:dotenv` shows dev `smtp://mailpit:1025` and test `null://null`. `SmtpMailerProviderTest` OK (2 tests, 11 assertions). POST email → worker `was handled successfully`; Mailpit UI shows To `user1@example.test`, subject `Hello`. With Mailpit stopped, attempts are `smtp`/`transient_failure` then `fake_email`/`succeeded`. `messenger:failed:show` prints `[OK] No failed messages were found.` Gate: phpunit `OK (93 tests, 684 assertions)`, php-cs-fixer `Found 0 of 122 files`, phpstan `[OK] No errors`, `check-docs: OK (88 classes mapped)`, `check-layers: OK`.
+
 ## Mapping follow-up — ORM attributes on aggregates
 - Proposed and accepted: replace XML mapping with `#[ORM\Entity]` on Domain model classes. Reason: pragmatic DDD
   (aggregates as Doctrine entities) scales with the Symfony stack; XML was a second file per class.

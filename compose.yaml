@@ -3,10 +3,14 @@ services:
     build:
       context: .
       target: dev
+    image: notification-service:dev
     restart: unless-stopped
-    # .env.local (gitignored, template in .env.local.dist) is the single switch for the container
-    # environment, e.g. XDEBUG_MODE=debug. Without the file the image default XDEBUG_MODE=off applies.
-    # An `environment:` entry would take precedence over env_file even when unset, so none is declared.
+    # .env.local (gitignored, template in .env.local.dist) is the switch for Xdebug and secrets.
+    # Without the file the image default XDEBUG_MODE=off applies. An `environment:` key overrides
+    # env_file for that name even when empty, so XDEBUG_MODE is not listed here.
+    # RUN_MIGRATIONS is app-only: the worker must not race schema changes.
+    environment:
+      RUN_MIGRATIONS: "1"
     env_file:
       - path: .env.local
         required: false
@@ -27,6 +31,42 @@ services:
       retries: 60
       # The first start installs Composer dependencies before serving anything.
       start_period: 30s
+
+  # Same image and volume as app. Consumes DeliverNotification; the time limit recycles the process.
+  worker:
+    build:
+      context: .
+      target: dev
+    image: notification-service:dev
+    restart: unless-stopped
+    command: ["bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=256M", "-vv"]
+    env_file:
+      - path: .env.local
+        required: false
+    volumes:
+      - ./:/app
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      app:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    # The image healthchecks Caddy on :2019. This process is the console consumer, so that check
+    # is replaced. `docker compose up --wait` (make run) errors when a service has none.
+    healthcheck:
+      test: ["CMD-SHELL", "ps | grep -q '[m]essenger:consume'"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  mailpit:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - "18025:8025"
+      - "1025:1025"
 
   database:
     image: mariadb:11.4

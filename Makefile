@@ -6,7 +6,7 @@ COMPOSE = docker compose
 .PHONY: help
 help: ## Get this help.
 	@echo Tasks:
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: build
 build: ## Rebuild the Docker images.
@@ -50,6 +50,51 @@ check-docs: run ## Verify reference docs and layer rules match the code.
 
 .PHONY: lint
 lint: cs phpstan check-docs ## Run every quality check (cs + phpstan + check-docs).
+
+.PHONY: worker-logs
+worker-logs: ## Follow the Messenger worker logs.
+	@$(COMPOSE) logs -f worker
+
+.PHONY: failed
+failed: ## List messages on the failure transport.
+	@$(COMPOSE) exec -T app bin/console messenger:failed:show
+
+.PHONY: retry-failed
+retry-failed: ## Retry every message on the failure transport.
+	@$(COMPOSE) exec -T app bin/console messenger:failed:retry --force -vv
+
+.PHONY: send
+send: ## POST an email; the worker delivers it to Mailpit.
+	@key=send-$$(date +%s); \
+	port=$$($(COMPOSE) port app 80 | cut -d: -f2); \
+	curl -fsS -X POST "http://localhost:$$port/notifications" \
+		-H 'Content-Type: application/json' \
+		-d "{\"userId\":\"user-1\",\"idempotencyKey\":\"$$key\",\"channels\":[\"email\"],\"subject\":\"Hello\",\"body\":\"Your order is confirmed.\"}"; \
+	echo
+
+.PHONY: send-failover
+send-failover: ## Stop Mailpit, POST an email so SMTP fails over to fake_email, print status, start Mailpit.
+	@$(COMPOSE) stop mailpit
+	@set -e; \
+	trap '$(COMPOSE) start mailpit' EXIT; \
+	key=failover-$$(date +%s); \
+	port=$$($(COMPOSE) port app 80 | cut -d: -f2); \
+	resp=$$(curl -fsS -X POST "http://localhost:$$port/notifications" \
+		-H 'Content-Type: application/json' \
+		-d "{\"userId\":\"user-1\",\"idempotencyKey\":\"$$key\",\"channels\":[\"email\"],\"subject\":\"Failover\",\"body\":\"SMTP is down.\"}"); \
+	echo "$$resp"; \
+	id=$$(printf '%s' "$$resp" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p'); \
+	i=0; \
+	while [ $$i -lt 30 ]; do \
+		body=$$(curl -fsS "http://localhost:$$port/notifications/$$id"); \
+		case "$$body" in \
+			*'"status":"sent"'*) echo "$$body"; exit 0 ;; \
+		esac; \
+		i=$$((i+1)); \
+		sleep 1; \
+	done; \
+	echo "$$body"; \
+	exit 1
 
 .PHONY: stop
 stop: ## Stop the application.

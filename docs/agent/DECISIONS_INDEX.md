@@ -6,12 +6,12 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | Decision | Where |
 |---|---|
 | Symfony 7.4 LTS, not 6.4; write deprecation-free code so it is 8.0-ready | §1.1 |
-| FrankenPHP kept in classic mode; worker mode documented, not enabled | §1.2 |
+| FrankenPHP kept in classic mode; worker mode documented, not enabled; Messenger worker healthcheck is the consume process, not Caddy | §1.2 |
 | PHPStan level 8 with symfony/doctrine/phpunit extensions; no strict-rules, no level 9 | §1.3 |
 | php-cs-fixer with `@Symfony` + risky + `@PER-CS2.0`; Pint rejected; `final` is convention not fixer rule | §1.4 |
 | Layer and doc gates are `tools/check-layers.php` / `tools/check-docs.php`, not deptrac | §1.5 |
 | Domain may import `Doctrine\Common\Collections` and `Doctrine\ORM\Mapping`; EntityManager / DBAL types stay in Infrastructure | §1.5 |
-| Xdebug via `.vscode/launch.json` port 9003, `/app -> ${workspaceFolder}`; `.env.local` is the switch (Compose `env_file`) | §1.6 |
+| Xdebug via `.vscode/launch.json` port 9003, `/app -> ${workspaceFolder}`; `.env.local` via Compose `env_file`; `environment:` is only `RUN_MIGRATIONS` on app | §1.6 |
 | Messenger + Doctrine transport = outbox without a broker; Mailer, HttpClient, Uid v7, Clock, RateLimiter on DBAL cache | §1.7 |
 | `symfony/notifier` rejected: its failover DSN hides the semantics we must design | §1.8 |
 | OpenAPI via NelmioApiDocBundle + Swagger UI; dump gated by PHPUnit; not a hand-written spec, not API Platform | §1.9 |
