@@ -8,10 +8,10 @@ Read this first at the start of every phase. Keep it under 20 lines. Plan lives 
 - **2.1–2.4:** channel config, failover, SMTP, Twilio. SMS list is `twilio,fake_sms`.
 - **3.1 Messenger:** `command.bus` + `delivery.bus`, `DeliverNotification` on `async`, `messenger_messages` migration.
 - **3.2 Worker + Mailpit:** `worker` consumes `async`; Mailpit UI `:18025`; dev `MAILER_DSN=smtp://mailpit:1025`; app `RUN_MIGRATIONS=1`.
-  Gate: phpunit OK (93 tests, 684 assertions), php-cs-fixer 0/122, phpstan OK, check-docs 88 classes.
+- **3.3 End-to-end delivery:** `DeliveryPipeline` drains in-memory `async` on `delivery.bus`. Gate: phpunit OK (101 tests, 1263 assertions), php-cs-fixer 0/124, phpstan OK, check-docs 88 classes.
 
 ## Next
-- **3.3** end-to-end tests (success / failover / permanent / unknown / all-fail).
+- **3.4** manual verification checklist.
 
 ## Environment notes
 - Windows host, no `make`: `docker compose exec -T app ...` (`docs/agent/COMMANDS.md`). Docker Desktop must be up. Agent never runs git write.

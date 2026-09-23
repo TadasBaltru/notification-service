@@ -277,3 +277,19 @@ public function __invoke(): JsonResponse
 ```
 After changing attributes, dump `docs/openapi.json` and call `assertResponseIsDocumented($client)` in the
 endpoint's `WebTestCase`. The 422 example is the 1.3 pattern; `/health` itself only returns 200.
+
+## R10 — End-to-end delivery (from `tests/Support/DeliveryPipeline.php`; skill fragment T6)
+```php
+foreach ($async->getSent() as $envelope) {
+    try {
+        $bus->dispatch($envelope->with(new ReceivedStamp('async')));
+    } catch (HandlerFailedException $exception) {
+        $failure = $exception->getWrappedExceptions();
+        $failure = $failure === [] ? $exception : $failure[array_key_first($failure)];
+    }
+}
+```
+`ReceivedStamp('async')` makes `delivery.bus` handle the envelope. `tests/Support/DeliveryPipeline.php` posts,
+drains, and reloads. Set `FAKE_EMAIL_MODE` and `NOTIFICATIONS_*` on `$_ENV` before `createClient()`. These tests
+order email `fake_email,smtp`. All-fail sets `MAILER_DSN=smtp://127.0.0.1:1` so smtp is refused before DATA.
+Restore `$_ENV` / `$_SERVER` afterwards: Dotenv does not `putenv`, so `getenv()` is not the value to put back.
