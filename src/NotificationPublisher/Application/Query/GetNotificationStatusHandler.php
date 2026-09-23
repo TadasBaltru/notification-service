@@ -9,7 +9,7 @@ use App\NotificationPublisher\Domain\Model\NotificationId;
 use App\NotificationPublisher\Domain\Port\NotificationRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
-#[AsMessageHandler]
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class GetNotificationStatusHandler
 {
     public function __construct(private NotificationRepository $notifications) {}

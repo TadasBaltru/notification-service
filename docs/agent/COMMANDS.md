@@ -19,6 +19,12 @@ with the stack up (`make run` / `docker compose up -d --wait`).
 | Docs / layers gate | `make check-docs` | `docker compose exec -T app php tools/check-docs.php && docker compose exec -T app php tools/check-layers.php` | `check-docs: OK (n classes mapped)` and `check-layers: OK` |
 | Everything | `make lint` | run the three above | all OK |
 | Symfony console | — | `docker compose exec -T app bin/console <cmd>` | e.g. `about`, `debug:container --tag=notification.provider`, `debug:messenger` |
+| Messenger buses | — | `docker compose exec -T app bin/console debug:messenger` | `delivery.bus` handles `DeliverNotification`; `command.bus` handles `SendNotification` |
+| Messenger routing | — | `docker compose exec -T app bin/console debug:config framework messenger` | `failure_transport: failed`; `DeliverNotification` sender is `async`; retry `max_retries: 5`, `delay: 2000`, `multiplier: 3`, `max_delay: 300000` |
+| Consume one delivery | — | `docker compose exec -T app bin/console messenger:consume async --limit=1 -vv` | `was handled successfully (acknowledging to transport)`; that delivery is `sent` |
+| Migration diff | — | `docker compose exec -T app bin/console doctrine:migrations:diff --no-interaction` | writes `migrations/Version*.php`, or "No changes detected" |
+| Apply migrations | — | `docker compose exec -T app bin/console doctrine:migrations:migrate --no-interaction` | `Successfully migrated` (add `--env=test` for `app_test`) |
+| Schema in sync | — | `docker compose exec -T app bin/console doctrine:schema:validate --no-interaction` | mapping `[OK]` and database `[OK]` |
 | DB shell | — | `docker compose exec database mariadb -uapp -papp app` | MariaDB prompt |
 | Composer | — | `docker compose exec -T app composer require --no-interaction <pkg>` | lock file updated; Flex recipes applied |
 | Dump OpenAPI spec | — | `docker compose exec -T app bin/console nelmio:apidoc:dump --format=json > docs/openapi.json` | overwrites `docs/openapi.json`; `OpenApiSnapshotTest` goes green |

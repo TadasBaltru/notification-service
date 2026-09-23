@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\NotificationPublisher\UserInterface;
 
+use App\NotificationPublisher\Application\Command\DeliverNotification;
+use App\NotificationPublisher\Application\Configuration\ChannelConfiguration;
 use App\NotificationPublisher\Domain\Model\DeliveryStatus;
 use App\NotificationPublisher\Domain\Model\NotificationId;
 use App\NotificationPublisher\Domain\Port\NotificationRepository;
@@ -11,6 +13,8 @@ use App\Tests\Support\OpenApiAssertions;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class NotificationApiTest extends WebTestCase
 {
@@ -160,6 +164,68 @@ final class NotificationApiTest extends WebTestCase
         self::assertSame('pending', $body['deliveries'][0]['status']);
     }
 
+    public function test_it_queues_one_message_per_pending_delivery(): void
+    {
+        $client = self::createClient();
+
+        $payload = $this->postNotification($client, [
+            'userId' => 'user-1',
+            'idempotencyKey' => 'order-queue-two',
+            'channels' => ['email', 'sms'],
+            'subject' => 'Hello',
+            'body' => 'Queue both.',
+        ]);
+
+        self::assertResponseStatusCodeSame(202);
+        $this->assertResponseIsDocumented($client);
+        self::assertIsArray($payload['deliveries']);
+        $responseIds = [];
+        foreach ($payload['deliveries'] as $delivery) {
+            self::assertIsArray($delivery);
+            self::assertIsString($delivery['id']);
+            $responseIds[] = $delivery['id'];
+        }
+        $queued = $this->queuedDeliveryIds();
+        sort($responseIds);
+        sort($queued);
+        self::assertSame($responseIds, $queued);
+    }
+
+    public function test_it_does_not_queue_a_disabled_channel(): void
+    {
+        $client = self::createClient();
+        self::getContainer()->set(ChannelConfiguration::class, ChannelConfiguration::fromArray([
+            'email' => ['enabled' => true, 'strategy' => 'priority', 'providers' => ['smtp', 'fake_email']],
+            'sms' => ['enabled' => false, 'strategy' => 'round_robin', 'providers' => ['twilio', 'fake_sms']],
+        ]));
+
+        $payload = $this->postNotification($client, [
+            'userId' => 'user-1',
+            'idempotencyKey' => 'order-queue-disabled',
+            'channels' => ['email', 'sms'],
+            'subject' => 'Hello',
+            'body' => 'Skip sms.',
+        ]);
+
+        self::assertResponseStatusCodeSame(202);
+        $this->assertResponseIsDocumented($client);
+        self::assertIsArray($payload['deliveries']);
+        $emailId = null;
+        foreach ($payload['deliveries'] as $delivery) {
+            self::assertIsArray($delivery);
+            if ('email' === $delivery['channel']) {
+                self::assertSame('pending', $delivery['status']);
+                self::assertIsString($delivery['id']);
+                $emailId = $delivery['id'];
+            }
+            if ('sms' === $delivery['channel']) {
+                self::assertSame('skipped', $delivery['status']);
+            }
+        }
+
+        self::assertSame([$emailId], $this->queuedDeliveryIds());
+    }
+
     /**
      * @param array<string, mixed> $body
      *
@@ -187,6 +253,22 @@ final class NotificationApiTest extends WebTestCase
 
         /** @var array<string, mixed> $decoded */
         return $decoded;
+    }
+
+    /** @return list<string> */
+    private function queuedDeliveryIds(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+        $ids = [];
+        foreach ($transport->getSent() as $envelope) {
+            self::assertInstanceOf(Envelope::class, $envelope);
+            $message = $envelope->getMessage();
+            self::assertInstanceOf(DeliverNotification::class, $message);
+            $ids[] = $message->deliveryId;
+        }
+
+        return $ids;
     }
 
     private function notificationCount(): int

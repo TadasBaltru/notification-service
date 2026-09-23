@@ -42,7 +42,9 @@ final class Delivery
         #[ORM\Id]
         #[ORM\Column(type: 'delivery_id')]
         private readonly DeliveryId $id,
-        #[ORM\ManyToOne(targetEntity: Notification::class, inversedBy: 'deliveries')]
+        // EAGER: a lazy Notification is created with its id already set, and hydrating it
+        // again tries to overwrite that readonly property (native lazy objects).
+        #[ORM\ManyToOne(targetEntity: Notification::class, inversedBy: 'deliveries', fetch: 'EAGER')]
         #[ORM\JoinColumn(name: 'notification_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
         private readonly Notification $notification,
         #[ORM\Column(length: 16, enumType: Channel::class)]

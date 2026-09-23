@@ -241,6 +241,27 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   Gate: phpunit `OK (88 tests, 592 assertions)`, php-cs-fixer `Found 0 of 117 files`, phpstan `[OK] No errors`,
   `check-docs: OK (86 classes mapped)`, `check-layers: OK`.
 
+## Phase 3.1 — Messenger wiring
+- Proposed and accepted: two buses. `command.bus` (`doctrine_transaction`) commits the notification and the
+  `DeliverNotification` rows together. `delivery.bus` has only `doctrine_ping_connection`. A transaction there
+  would roll back attempt rows when the handler throws `RecoverableMessageHandlingException` or
+  `UnrecoverableMessageHandlingException`. The flush of `in_progress` is a callback into
+  `FailoverDeliveryStrategy::deliver()`, because `startAttempt` and `send()` are inside that loop; the handler
+  cannot save between them. `failed` uses `auto_setup=0` as well, so a worker does not create the table.
+- Proposed and accepted: transient exhaustion leaves the delivery `pending`. `DECISIONS` §3.1 used to say it is
+  marked `failed`, which would make `isFinal()` ignore `messenger:failed:retry`.
+- Rejected: skill fragment B1's throttle / `DelayStamp` (rate limiting is 4.1). Rejected `sync://` in test
+  (DECISIONS §3.6). Rejected `DeliveryResult::isSent()` / `isFailed()` from the old R3 fragment; the class
+  exposes `succeeded()` and `isPermanent()`.
+- Verified / corrected: `Delivery.notification` must be `EAGER`. A lazy `Notification` is born with its readonly
+  `id` set, and Doctrine's `ReadonlyAccessor` throws when hydration assigns a second instance. `test_it_sends_a_pending_delivery`
+  failed on that before the fetch change. Symfony 7.4 `debug:messenger` lists buses and handlers, not senders;
+  `debug:config framework messenger` shows `DeliverNotification` -> `async`. Dev POST of email queued
+  `messenger_messages` (`queue_name=default`); `messenger:consume async --limit=1 -vv` marked it `sent` via smtp.
+  `GetNotificationStatusHandler` is pinned to `command.bus` so a handler with no bus is not registered on every bus.
+  Gate: phpunit `OK (93 tests, 684 assertions)`, php-cs-fixer `Found 0 of 122 files`, phpstan `[OK] No errors`,
+  `check-docs: OK (88 classes mapped)`, `check-layers: OK`.
+
 ## Mapping follow-up — ORM attributes on aggregates
 - Proposed and accepted: replace XML mapping with `#[ORM\Entity]` on Domain model classes. Reason: pragmatic DDD
   (aggregates as Doctrine entities) scales with the Symfony stack; XML was a second file per class.

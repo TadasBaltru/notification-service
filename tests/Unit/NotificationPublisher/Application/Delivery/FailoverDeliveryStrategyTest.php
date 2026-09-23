@@ -198,6 +198,25 @@ final class FailoverDeliveryStrategyTest extends TestCase
         self::assertSame(AttemptOutcome::Succeeded, $delivery->attempts()[0]->outcome());
     }
 
+    public function test_it_flushes_each_attempt_while_it_is_in_progress(): void
+    {
+        $primary = FakeSmsProvider::withMode(FakeMode::Transient, 'fake_a');
+        $secondary = FakeSmsProvider::withMode(FakeMode::Success, 'fake_b');
+        $delivery = DeliveryBuilder::aPendingSmsDelivery()->build();
+        $seen = [];
+
+        $this->strategy([$primary, $secondary])->deliver($delivery, static function () use ($delivery, &$seen): void {
+            $attempt = $delivery->attempts()[\count($delivery->attempts()) - 1];
+            $seen[] = $attempt->outcome();
+        });
+
+        self::assertSame([AttemptOutcome::InProgress, AttemptOutcome::InProgress], $seen);
+        self::assertSame(
+            [AttemptOutcome::TransientFailure, AttemptOutcome::Succeeded],
+            $this->outcomes($delivery),
+        );
+    }
+
     /** @return iterable<string, array{string}> */
     public static function nonDeliverableStatuses(): iterable
     {

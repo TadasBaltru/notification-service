@@ -66,7 +66,7 @@ The tag is collected by `#[AutowireIterator('notification.provider')]`. SMTP is 
 5. Tests: `ChannelConfigurationTest` for each rejection; tag check via
    `bin/console debug:container --tag=notification.provider`.
 
-## R3 — Messenger message + handler (template, replaced in 3.1; skill fragment B1/B2)
+## R3 — Messenger message + handler (from `src/NotificationPublisher/Application/Command/DeliverNotificationHandler.php`)
 ```php
 final readonly class DeliverNotification
 {
@@ -85,22 +85,24 @@ final readonly class DeliverNotificationHandler
     {
         $delivery = $this->deliveries->get(DeliveryId::fromString($message->deliveryId));
         if ($delivery->isFinal()) {
-            return; // redelivery after an unknown outcome: idempotent no-op
+            return;
         }
-        $result = $this->strategy->deliver($delivery);
-        $this->deliveries->save($delivery);          // flush BEFORE throwing: delivery.bus has no transaction middleware
-
-        match (true) {
-            $result->isSent() => null,
-            $result->isFailed() => throw new UnrecoverableMessageHandlingException($result->reason()),
-            default => throw new RecoverableMessageHandlingException($result->reason()),
-        };
+        $result = $this->strategy->deliver($delivery, fn() => $this->deliveries->save($delivery));
+        $this->deliveries->save($delivery);
+        if ($result->succeeded()) {
+            return;
+        }
+        if ($result->isPermanent()) {
+            throw new UnrecoverableMessageHandlingException($result->reason());
+        }
+        throw new RecoverableMessageHandlingException($result->reason());
     }
 }
 ```
-`SendNotification` runs on `command.bus` with `doctrine_transaction`, so the notification rows and the
-`DeliverNotification` outbox rows (Doctrine transport, same connection) commit together. `delivery.bus` has no
-transaction middleware on purpose: it would roll back the attempt evidence on the exceptions above (DECISIONS §3.6).
+`SendNotificationHandler` dispatches one message per pending delivery on `delivery.bus` (`#[Target('deliveryBus')]`).
+`command.bus` has `doctrine_transaction`, so those Doctrine-transport rows commit with the notification.
+`delivery.bus` has only `doctrine_ping_connection` (DECISIONS §3.6). The closure flushes `in_progress` before `send()`.
+Routing lives in `config/packages/messenger.yaml`. Tests use `in-memory://`.
 
 ## R4 — Doctrine attribute mapping + migration (from `src/NotificationPublisher/Domain/Model/Notification.php`; skill fragment C1/C2)
 ```php
@@ -201,8 +203,8 @@ final class NotificationApiTest extends WebTestCase
 }
 ```
 Runs against `app_test`; `dama/doctrine-test-bundle` rolls the transaction back after each test, so no cleanup.
-Replay of the same `idempotencyKey` is 200 with the same `id`. Messenger `async` is still unused (3.1); do not
-dispatch `DeliverNotification` yet.
+Replay of the same `idempotencyKey` is 200 with the same `id`. In test, `async` is `in-memory://`: a POST
+queues `DeliverNotification` and does not run the provider.
 
 ## R8 — Fake provider with a mode (from `src/NotificationPublisher/Infrastructure/Provider/Fake/FakeSmsProvider.php`; skill fragment A3/T2)
 ```php

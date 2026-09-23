@@ -17,10 +17,12 @@ use App\NotificationPublisher\Domain\Model\UserId;
 use App\NotificationPublisher\Domain\Port\NotificationRepository;
 use App\NotificationPublisher\Domain\Port\RecipientResolver;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
 
-#[AsMessageHandler]
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class SendNotificationHandler
 {
     public function __construct(
@@ -28,6 +30,8 @@ final readonly class SendNotificationHandler
         private RecipientResolver $recipients,
         private ChannelConfiguration $channels,
         private ClockInterface $clock,
+        #[Target('deliveryBus')]
+        private MessageBusInterface $deliveryBus,
     ) {}
 
     public function __invoke(SendNotification $command): SendNotificationResult
@@ -68,6 +72,11 @@ final readonly class SendNotificationHandler
         }
 
         $this->notifications->save($notification);
+        foreach ($notification->deliveries() as $delivery) {
+            if ($delivery->isPending()) {
+                $this->deliveryBus->dispatch(new DeliverNotification($delivery->id()->value));
+            }
+        }
 
         return new SendNotificationResult($notification, true);
     }

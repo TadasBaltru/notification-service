@@ -147,8 +147,10 @@ handler maps the result once: `retryLater` → `RecoverableMessageHandlingExcept
   leaves the delivery `pending`. The handler (3.1) throws
   `RecoverableMessageHandlingException` and Messenger retries the whole delivery:
   `max_retries: 5, delay: 2000, multiplier: 3, max_delay: 300000` (2 s, 6 s, 18 s, 54 s, 162 s).
-- After the last retry the message lands in the `failed` transport and the delivery is marked `failed`.
-  Replay with `messenger:failed:retry` (`make retry-failed`). A notification never silently disappears.
+- After the last retry the message lands in the `failed` transport and the delivery stays `pending`.
+  Marking it `failed` would make the handler no-op on `isFinal()`, so `messenger:failed:retry`
+  (`make retry-failed`) would do nothing. A permanent failure still marks the delivery `failed`
+  before the unrecoverable exception. A notification never silently disappears.
 
 ### 3.2 Permanent failure
 - Recipient-level (invalid number / address, e.g. Twilio 21211 / 21614): no failover, delivery `failed`,

@@ -25,7 +25,10 @@ final readonly class FailoverDeliveryStrategy
         private ClockInterface $clock,
     ) {}
 
-    public function deliver(Delivery $delivery): DeliveryResult
+    /**
+     * @param callable(): void|null $flushAttempt called after each attempt is in_progress, before the provider call
+     */
+    public function deliver(Delivery $delivery, ?callable $flushAttempt = null): DeliveryResult
     {
         $this->assertDeliverable($delivery);
 
@@ -40,6 +43,9 @@ final readonly class FailoverDeliveryStrategy
                 $name,
                 $this->clock->now(),
             );
+            if (null !== $flushAttempt) {
+                $flushAttempt();
+            }
 
             try {
                 $receipt = $provider->send($delivery->toOutboundMessage());
