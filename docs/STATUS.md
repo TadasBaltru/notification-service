@@ -7,13 +7,13 @@ Read this first at the start of every phase. Keep it under 20 lines. Plan lives 
 - **Day 1 (1.1–1.4):** `Notification` aggregate + Doctrine attribute mapping + `POST`/`GET /notifications`.
 - **2.1–2.4:** channel config, failover, SMTP, Twilio. SMS list is `twilio,fake_sms`.
 - **3.1–3.4:** `command.bus` + `delivery.bus`, worker, Mailpit, `DeliveryPipeline`, `DeliveryRequiresRetry` so `max_retries` applies.
-- **4.1:** per-user sliding window on `cache_items`; only `requiresUserAction`; `DelayStamp` redelivery (does not consume a failure retry).
+- **4.1–4.3:** throttle on `requiresUserAction` via `DelayStamp`; tracking endpoints and `(user_id, created_at)` index; PHPStan 8 / cs / doc gates clean.
 
 ## Next
-- **4.2** tracking endpoint polish.
+- **4.4** README / DECISIONS / AI_NOTES final.
 
 ## Environment notes
 - Windows host, no `make`: `docker compose exec -T app ...` (`docs/agent/COMMANDS.md`). Docker Desktop must be up. Agent never runs git write.
 - `.env.local` is `XDEBUG_MODE=debug` only. Do not set `MAILER_DSN` there (a real env var beats `.env.test`'s `null://null`).
 - `docker/entrypoint.sh` is copied into the image: rebuild after editing it (`docker compose up -d --build --wait`).
-- Throttle defaults: `NOTIFICATIONS_THROTTLE_LIMIT=300`, `NOTIFICATIONS_THROTTLE_INTERVAL=1 hour`. `.env.test` sets the limit to 3.
+- Throttle defaults: `NOTIFICATIONS_THROTTLE_LIMIT=300`, `NOTIFICATIONS_THROTTLE_INTERVAL=1 hour`. `.env.test` sets the limit to 3. Migration `Version20260924132829` replaces the `user_id` index.

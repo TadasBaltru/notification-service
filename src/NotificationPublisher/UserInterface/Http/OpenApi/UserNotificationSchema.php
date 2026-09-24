@@ -6,11 +6,8 @@ namespace App\NotificationPublisher\UserInterface\Http\OpenApi;
 
 use OpenApi\Attributes as OA;
 
-final readonly class NotificationSchema
+final readonly class UserNotificationSchema
 {
-    /**
-     * @param list<DeliverySchema> $deliveries
-     */
     public function __construct(
         #[OA\Property(format: 'uuid')]
         public string $id,
@@ -22,8 +19,5 @@ final readonly class NotificationSchema
         public string $createdAt,
         #[OA\Property(example: 'Hello')]
         public string $subject,
-        #[OA\Property(example: 'Your order is confirmed.')]
-        public string $body,
-        public array $deliveries,
     ) {}
 }

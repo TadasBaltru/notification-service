@@ -94,16 +94,6 @@ final class Delivery
         return $this->status;
     }
 
-    public function createdAt(): \DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
-
-    public function updatedAt(): \DateTimeImmutable
-    {
-        return $this->updatedAt;
-    }
-
     public function sentViaProvider(): ?string
     {
         return $this->sentViaProvider;

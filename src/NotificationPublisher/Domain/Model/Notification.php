@@ -11,7 +11,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'notifications')]
-#[ORM\Index(name: 'idx_notifications_user_id', columns: ['user_id'])]
+#[ORM\Index(name: 'idx_notifications_user_created', columns: ['user_id', 'created_at'])]
 final class Notification
 {
     /** @var Collection<int, Delivery> */
@@ -79,11 +79,6 @@ final class Notification
     public function createdAt(): \DateTimeImmutable
     {
         return $this->createdAt;
-    }
-
-    public function updatedAt(): \DateTimeImmutable
-    {
-        return $this->updatedAt;
     }
 
     /** @return list<Delivery> */

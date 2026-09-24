@@ -12,11 +12,6 @@ enum AttemptOutcome: string
     case PermanentFailure = 'permanent_failure';
     case Unknown = 'unknown';
 
-    public function allowsFailover(): bool
-    {
-        return self::TransientFailure === $this;
-    }
-
     public function isFailure(): bool
     {
         return match ($this) {

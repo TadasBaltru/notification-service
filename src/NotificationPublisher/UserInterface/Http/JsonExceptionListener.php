@@ -78,8 +78,8 @@ final readonly class JsonExceptionListener
     private function map(\Throwable $throwable): array
     {
         return match (true) {
-            $throwable instanceof NotificationNotFound,
-            $throwable instanceof DeliveryNotFound => [404, 'Notification not found', $throwable->getMessage()],
+            $throwable instanceof NotificationNotFound => [404, 'Notification not found', $throwable->getMessage()],
+            $throwable instanceof DeliveryNotFound => [404, 'Delivery not found', $throwable->getMessage()],
             $throwable instanceof UnknownUser => [422, 'Unknown user', $throwable->getMessage()],
             $throwable instanceof ChannelContactNotFound => [422, 'No contact for requested channel', $throwable->getMessage()],
             $throwable instanceof DomainException => [422, 'Unprocessable request', $throwable->getMessage()],

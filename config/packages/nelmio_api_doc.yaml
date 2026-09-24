@@ -6,6 +6,7 @@ nelmio_api_doc:
             description: >
                 Accept a notification with POST /notifications (HTTP 202). Delivery is asynchronous;
                 poll GET /notifications/{id} for per-channel status and attempt history.
+                GET /users/{userId}/notifications lists that user's notifications, optionally since a date-time.
         servers:
             - url: /
               description: Relative to the host serving this application

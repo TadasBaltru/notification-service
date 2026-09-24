@@ -8,6 +8,9 @@ use OpenApi\Attributes as OA;
 
 final readonly class DeliverySchema
 {
+    /**
+     * @param list<AttemptSchema> $attempts
+     */
     public function __construct(
         #[OA\Property(format: 'uuid')]
         public string $id,
@@ -17,5 +20,10 @@ final readonly class DeliverySchema
         public string $status,
         #[OA\Property(example: 'user1@example.test')]
         public string $recipient,
+        #[OA\Property(nullable: true, example: 'smtp')]
+        public ?string $provider,
+        #[OA\Property(format: 'date-time', nullable: true)]
+        public ?string $sentAt,
+        public array $attempts,
     ) {}
 }

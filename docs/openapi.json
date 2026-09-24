@@ -2,7 +2,7 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Notification Service",
-        "description": "Accept a notification with POST /notifications (HTTP 202). Delivery is asynchronous; poll GET /notifications/{id} for per-channel status and attempt history.\n",
+        "description": "Accept a notification with POST /notifications (HTTP 202). Delivery is asynchronous; poll GET /notifications/{id} for per-channel status and attempt history. GET /users/{userId}/notifications lists that user's notifications, optionally since a date-time.\n",
         "version": "0.1.0"
     },
     "servers": [
@@ -154,6 +154,57 @@
                     }
                 }
             }
+        },
+        "/users/{userId}/notifications": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Notifications for one user",
+                "operationId": "get_user_notifications_list",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "user-1"
+                        }
+                    },
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time",
+                            "example": "2026-01-01T00:00:00+00:00"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Notifications created at or after since, newest first",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserNotificationListSchema"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Query parameter since is not a date-time",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -209,12 +260,58 @@
                 },
                 "type": "object"
             },
+            "AttemptSchema": {
+                "required": [
+                    "id",
+                    "provider",
+                    "outcome",
+                    "startedAt"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "provider": {
+                        "type": "string",
+                        "example": "smtp"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "example": "succeeded"
+                    },
+                    "startedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "finishedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "errorCode": {
+                        "type": "string",
+                        "example": "invalid_address",
+                        "nullable": true
+                    },
+                    "errorMessage": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "providerMessageId": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
             "DeliverySchema": {
                 "required": [
                     "id",
                     "channel",
                     "status",
-                    "recipient"
+                    "recipient",
+                    "attempts"
                 ],
                 "properties": {
                     "id": {
@@ -235,6 +332,22 @@
                     "recipient": {
                         "type": "string",
                         "example": "user1@example.test"
+                    },
+                    "provider": {
+                        "type": "string",
+                        "example": "smtp",
+                        "nullable": true
+                    },
+                    "sentAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "attempts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttemptSchema"
+                        }
                     }
                 },
                 "type": "object"
@@ -242,7 +355,11 @@
             "Notification": {
                 "required": [
                     "id",
+                    "userId",
                     "status",
+                    "createdAt",
+                    "subject",
+                    "body",
                     "deliveries"
                 ],
                 "properties": {
@@ -250,9 +367,25 @@
                         "type": "string",
                         "format": "uuid"
                     },
+                    "userId": {
+                        "type": "string",
+                        "example": "user-1"
+                    },
                     "status": {
                         "type": "string",
                         "example": "pending"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "subject": {
+                        "type": "string",
+                        "example": "Hello"
+                    },
+                    "body": {
+                        "type": "string",
+                        "example": "Your order is confirmed."
                     },
                     "deliveries": {
                         "type": "array",
@@ -334,6 +467,52 @@
                             }
                         ],
                         "default": null
+                    }
+                },
+                "type": "object"
+            },
+            "UserNotificationSchema": {
+                "required": [
+                    "id",
+                    "userId",
+                    "status",
+                    "createdAt",
+                    "subject"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "userId": {
+                        "type": "string",
+                        "example": "user-1"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "subject": {
+                        "type": "string",
+                        "example": "Hello"
+                    }
+                },
+                "type": "object"
+            },
+            "UserNotificationListSchema": {
+                "required": [
+                    "notifications"
+                ],
+                "properties": {
+                    "notifications": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UserNotificationSchema"
+                        }
                     }
                 },
                 "type": "object"

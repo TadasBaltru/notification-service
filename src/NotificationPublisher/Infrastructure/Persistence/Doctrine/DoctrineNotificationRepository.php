@@ -8,7 +8,9 @@ use App\NotificationPublisher\Domain\Exception\NotificationNotFound;
 use App\NotificationPublisher\Domain\Model\IdempotencyKey;
 use App\NotificationPublisher\Domain\Model\Notification;
 use App\NotificationPublisher\Domain\Model\NotificationId;
+use App\NotificationPublisher\Domain\Model\UserId;
 use App\NotificationPublisher\Domain\Port\NotificationRepository;
+use App\NotificationPublisher\Infrastructure\Persistence\Doctrine\Type\UserIdType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
@@ -38,5 +40,26 @@ final readonly class DoctrineNotificationRepository implements NotificationRepos
         return $this->entityManager->getRepository(Notification::class)->findOneBy([
             'idempotencyKey' => $key,
         ]);
+    }
+
+    public function findByUser(UserId $userId, ?\DateTimeImmutable $since): array
+    {
+        $builder = $this->entityManager->createQueryBuilder()
+            ->select('notification')
+            ->from(Notification::class, 'notification')
+            ->where('notification.userId = :userId')
+            ->setParameter('userId', $userId, UserIdType::NAME)
+            ->orderBy('notification.createdAt', \SortDirection::Descending)
+            ->addOrderBy('notification.id', \SortDirection::Descending);
+
+        if (null !== $since) {
+            $builder->andWhere('notification.createdAt >= :since')
+                ->setParameter('since', $since);
+        }
+
+        /** @var list<Notification> $notifications */
+        $notifications = $builder->getQuery()->getResult();
+
+        return $notifications;
     }
 }

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Unit\NotificationPublisher\UserInterface\Http;
 
 use App\NotificationPublisher\Application\Query\GetNotificationStatus;
+use App\NotificationPublisher\Domain\Exception\DeliveryNotFound;
 use App\NotificationPublisher\Domain\Exception\NotificationNotFound;
 use App\NotificationPublisher\Domain\Exception\UnknownUser;
+use App\NotificationPublisher\Domain\Model\DeliveryId;
 use App\NotificationPublisher\Domain\Model\NotificationId;
 use App\NotificationPublisher\Domain\Model\UserId;
 use App\NotificationPublisher\UserInterface\Http\JsonExceptionListener;
@@ -50,6 +52,21 @@ final class JsonExceptionListenerTest extends TestCase
         $body = json_decode((string) $response->getContent(), true);
         self::assertIsArray($body);
         self::assertSame('Unknown user', $body['title']);
+    }
+
+    public function test_it_maps_a_missing_delivery_to_404(): void
+    {
+        $inner = DeliveryNotFound::withId(DeliveryId::fromString('01990a2f-0000-7000-8000-000000000088'));
+        $response = $this->listen(new HandlerFailedException(
+            new Envelope(new GetNotificationStatus('unused')),
+            [$inner],
+        ));
+
+        self::assertNotNull($response);
+        self::assertSame(404, $response->getStatusCode());
+        $body = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($body);
+        self::assertSame('Delivery not found', $body['title']);
     }
 
     private function listen(\Throwable $throwable): ?Response
