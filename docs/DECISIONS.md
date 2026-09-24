@@ -11,7 +11,7 @@ confirmed or amended in the phase that implements them and the change is noted i
   bug-fix support in Nov 2026, so starting a new service on it makes no sense.
 - 7.4 is feature-identical to 8.0 minus deprecated paths: deprecation-free 7.4 code is 8.0-ready.
 - Features relied upon: `#[MapRequestPayload]`, `#[AsTaggedItem]` / `#[AutowireIterator]` / `#[AutowireLocator]`,
-  the Clock component, Messenger `RecoverableMessageHandlingException` with retry delay, Doctrine native lazy
+  the Clock component, Messenger `UnrecoverableMessageHandlingException` plus the transport retry strategy, Doctrine native lazy
   objects (PHP 8.4).
 
 ### 1.2 FrankenPHP (kept, classic mode)
@@ -113,9 +113,13 @@ parameters:
   notifications.channels:
     email: { enabled: true, strategy: priority,    providers: ['smtp', 'fake_email'] }
     sms:   { enabled: true, strategy: round_robin, providers: ['twilio', 'fake_sms'] }
-  notifications.throttle: { limit: 300, interval: '1 hour' }
+  notifications.throttle: { limit: '%env(int:NOTIFICATIONS_THROTTLE_LIMIT)%', interval: '%env(NOTIFICATIONS_THROTTLE_INTERVAL)%' }
   notifications.recipients: { 'user-1': { email: 'user1@example.test', phone: '+37060000001' } }
 ```
+- Throttle defaults are `NOTIFICATIONS_THROTTLE_LIMIT=300` and `NOTIFICATIONS_THROTTLE_INTERVAL=1 hour`.
+  `framework.rate_limiter.per_user_notifications` and the `notifications.throttle` parameter both read those env vars.
+  `.env.test` sets the limit to 3 so a test can reach the window without 300 requests. `lock_factory: null` because
+  the default file lock is not shared by the app and the worker.
 - Env overrides: `NOTIFICATIONS_SMS_PROVIDERS` / `NOTIFICATIONS_EMAIL_PROVIDERS` (csv), `NOTIFICATIONS_*_ENABLED`,
   `MAILER_DSN`, `MAILER_FROM`, `TWILIO_*`, `FAKE_SMS_MODE` / `FAKE_EMAIL_MODE` =
   `success|transient|permanent_recipient|permanent_provider|timeout`.
@@ -145,13 +149,14 @@ parameters:
 
 `FailoverDeliveryStrategy` returns a `DeliveryResult` and does not throw for control flow. Attempts are recorded
 on the `Delivery` (`startAttempt` before the provider call, then `completeAttempt` / `failAttempt`). Phase 3.1's
-handler maps the result once: `retryLater` → `RecoverableMessageHandlingException`, `failed` →
+handler maps the result once: `retryLater` → `DeliveryRequiresRetry`, `failed` →
 `UnrecoverableMessageHandlingException`.
 
 ### 3.1 Transient failure (5xx, 429, connection refused / DNS)
 - Try the next provider in order. If every provider fails transiently, the strategy returns `retryLater` and
-  leaves the delivery `pending`. The handler (3.1) throws
-  `RecoverableMessageHandlingException` and Messenger retries the whole delivery:
+  leaves the delivery `pending`. The handler (3.1) throws `DeliveryRequiresRetry`
+  (not `RecoverableMessageHandlingException`: that interface retries forever and ignores `max_retries`)
+  and Messenger retries the whole delivery:
   `max_retries: 5, delay: 2000, multiplier: 3, max_delay: 300000` (2 s, 6 s, 18 s, 54 s, 162 s).
 - After the last retry the message lands in the `failed` transport and the delivery stays `pending`.
   Marking it `failed` would make the handler no-op on `isFinal()`, so `messenger:failed:retry`
@@ -172,7 +177,7 @@ handler maps the result once: `retryLater` → `RecoverableMessageHandlingExcept
 
 ### 3.3 Unknown outcome (timeout after the request was sent, dropped connection)
 - Record the attempt as `unknown`, **no same-run failover** (the message may have been delivered). The strategy
-  returns `retryLater` and leaves the delivery `pending`; the handler (3.1) throws recoverable so Messenger retries later.
+  returns `retryLater` and leaves the delivery `pending`; the handler (3.1) throws `DeliveryRequiresRetry` so Messenger retries later.
 - At-least-once delivery is accepted; exactly-once is not achievable with these providers. Mitigations:
   deterministic SMTP `Message-ID` derived from the delivery id, provider idempotency key where supported.
 - SMTP cannot tell us whether a `TransportException` happened before or after the message left. The adapter
@@ -198,7 +203,7 @@ handler maps the result once: `retryLater` → `RecoverableMessageHandlingExcept
   the notification, its deliveries and the `DeliverNotification` rows in `messenger_messages` commit together
   (Doctrine transport on the same connection = outbox without a broker).
 - `delivery.bus` (`DeliverNotification`, consumed by the worker) runs **without** `doctrine_transaction`. That
-  middleware rolls back on any exception — and the design *relies* on throwing `RecoverableMessageHandlingException`
+  middleware rolls back on any exception — and the design *relies* on throwing `DeliveryRequiresRetry`
   / `UnrecoverableMessageHandlingException` to drive retries. Wrapped, every attempt row and status change
   would vanish exactly when a provider fails. The handler therefore saves (flushes) explicitly, then throws.
 - Test environment: `async` and `failed` transports are `in-memory://`. `sync://` was rejected: it would execute

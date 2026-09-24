@@ -147,13 +147,13 @@ final readonly class DeliverNotificationHandler
         match (true) {
             $result->succeeded() => null,
             $result->isPermanent() => throw new UnrecoverableMessageHandlingException($result->reason()),
-            default => throw new RecoverableMessageHandlingException($result->reason()),
+            default => throw new DeliveryRequiresRetry($result->reason()),
         };
     }
 }
 ```
-`RecoverableMessageHandlingException` accepts `retryDelay: int` (ms) as 4th constructor argument in 7.2+ if a custom
-delay is needed; otherwise the transport retry strategy applies.
+`DeliveryRequiresRetry` is a normal exception, so `max_retries` applies and the message then goes to the failed transport.
+`RecoverableMessageHandlingException` retries forever (it implements `RecoverableExceptionInterface`) and must not be used for this.
 
 ## B2 — Dispatch inside the same transaction (Application)
 ```php

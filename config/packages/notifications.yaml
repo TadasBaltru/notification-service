@@ -9,8 +9,8 @@ parameters:
             strategy: round_robin
             providers: '%env(csv:NOTIFICATIONS_SMS_PROVIDERS)%'
     notifications.throttle:
-        limit: 300
-        interval: '1 hour'
+        limit: '%env(int:NOTIFICATIONS_THROTTLE_LIMIT)%'
+        interval: '%env(NOTIFICATIONS_THROTTLE_INTERVAL)%'
     notifications.recipients:
         user-1:
             email: 'user1@example.test'

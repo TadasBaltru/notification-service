@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\NotificationPublisher\UserInterface;
 
+use App\NotificationPublisher\Application\Command\DeliverNotification;
+use App\NotificationPublisher\Application\Exception\DeliveryRequiresRetry;
 use App\NotificationPublisher\Domain\Model\AttemptOutcome;
 use App\NotificationPublisher\Domain\Model\Delivery;
 use App\NotificationPublisher\Domain\Model\DeliveryStatus;
@@ -14,8 +16,14 @@ use App\Tests\Support\OpenApiAssertions;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Event\WorkerRunningEvent;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\Messenger\Worker;
 
 final class DeliveryPipelineTest extends WebTestCase
 {
@@ -71,7 +79,7 @@ final class DeliveryPipelineTest extends WebTestCase
         $id = $this->acceptEmail($client, $pipeline, 'e2e-all-fail');
         $failure = $pipeline->drain();
 
-        self::assertInstanceOf(RecoverableMessageHandlingException::class, $failure);
+        self::assertInstanceOf(DeliveryRequiresRetry::class, $failure);
         $this->assertHttpDeliveryStatus($client, $id, 'pending');
         $delivery = $this->delivery($pipeline, $id, 'email');
         self::assertSame(DeliveryStatus::Pending, $delivery->status());
@@ -83,6 +91,46 @@ final class DeliveryPipelineTest extends WebTestCase
         self::assertSame(['fake_email', 'smtp'], $this->providers($delivery));
     }
 
+    public function test_it_moves_the_message_to_the_failed_transport_when_retries_are_exhausted(): void
+    {
+        $client = $this->emailClient('transient', 'smtp://127.0.0.1:1');
+        $pipeline = $this->pipeline($client);
+        $id = $this->acceptEmail($client, $pipeline, 'e2e-failed-transport');
+
+        $async = self::getContainer()->get('messenger.transport.async');
+        $failed = self::getContainer()->get('messenger.transport.failed');
+        $bus = self::getContainer()->get('delivery.bus');
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(InMemoryTransport::class, $async);
+        self::assertInstanceOf(InMemoryTransport::class, $failed);
+        self::assertInstanceOf(MessageBusInterface::class, $bus);
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        $handled = 0;
+        $dispatcher->addListener(WorkerRunningEvent::class, static function (WorkerRunningEvent $event) use (&$handled): void {
+            if ($event->isWorkerIdle()) {
+                $event->getWorker()->stop();
+
+                return;
+            }
+
+            ++$handled;
+            // Test retry max is 1, so a correct strategy rejects on the second handle. A third
+            // handle means the message is being retried without a cap; stop so the test can fail.
+            if ($handled >= 3) {
+                $event->getWorker()->stop();
+            }
+        });
+
+        (new Worker(['async' => $async], $bus, $dispatcher))->run(['sleep' => 0, 'time_limit' => 5]);
+
+        self::assertCount(1, $failed->getSent());
+        self::assertSame([], $async->get());
+        $this->assertHttpDeliveryStatus($client, $id, 'pending');
+        $delivery = $this->delivery($pipeline, $id, 'email');
+        self::assertSame(DeliveryStatus::Pending, $delivery->status());
+    }
+
     public function test_it_retries_later_without_failover_when_the_primary_times_out(): void
     {
         $client = $this->emailClient('timeout');
@@ -91,7 +139,7 @@ final class DeliveryPipelineTest extends WebTestCase
         $id = $this->acceptEmail($client, $pipeline, 'e2e-unknown');
         $failure = $pipeline->drain();
 
-        self::assertInstanceOf(RecoverableMessageHandlingException::class, $failure);
+        self::assertInstanceOf(DeliveryRequiresRetry::class, $failure);
         $this->assertHttpDeliveryStatus($client, $id, 'pending');
         $delivery = $this->delivery($pipeline, $id, 'email');
         self::assertSame(DeliveryStatus::Pending, $delivery->status());
@@ -135,6 +183,45 @@ final class DeliveryPipelineTest extends WebTestCase
         $delivery = $this->delivery($pipeline, $id, 'sms');
         self::assertSame(DeliveryStatus::Skipped, $delivery->status());
         self::assertSame([], $delivery->attempts());
+    }
+
+    public function test_it_throttles_the_fourth_user_action_and_ignores_the_rest(): void
+    {
+        $client = self::createClient();
+        $pipeline = $this->pipeline($client);
+
+        $plain = $this->acceptFor($client, $pipeline, 'throttle-plain', false);
+        self::assertNull($pipeline->drain());
+        $this->assertHttpDeliveryStatus($client, $plain, 'sent');
+
+        $sent = [];
+        foreach (['throttle-1', 'throttle-2', 'throttle-3'] as $key) {
+            $sent[] = $this->acceptFor($client, $pipeline, $key, true);
+            self::assertNull($pipeline->drain());
+        }
+        foreach ($sent as $id) {
+            $this->assertHttpDeliveryStatus($client, $id, 'sent');
+        }
+
+        $blocked = $this->acceptFor($client, $pipeline, 'throttle-4', true);
+        self::assertNull($pipeline->drain());
+        $delayed = $this->delayed($pipeline);
+        $delivery = $this->delivery($pipeline, $blocked, 'email');
+
+        self::assertSame(DeliveryStatus::Throttled, $delivery->status());
+        self::assertSame([], $delivery->attempts());
+        self::assertCount(1, $delayed);
+        $message = $delayed[0]->getMessage();
+        self::assertInstanceOf(DeliverNotification::class, $message);
+        self::assertSame($delivery->id()->value, $message->deliveryId);
+        $stamp = $delayed[0]->last(DelayStamp::class);
+        self::assertInstanceOf(DelayStamp::class, $stamp);
+        self::assertGreaterThan(0, $stamp->getDelay());
+        $this->assertHttpDeliveryStatus($client, $blocked, 'throttled');
+
+        $after = $this->acceptFor($client, $pipeline, 'throttle-plain-after', false);
+        self::assertNull($pipeline->drain());
+        $this->assertHttpDeliveryStatus($client, $after, 'sent');
     }
 
     public function test_it_does_not_record_another_attempt_when_the_same_message_is_delivered_twice(): void
@@ -212,6 +299,34 @@ final class DeliveryPipelineTest extends WebTestCase
 
             return $service;
         });
+    }
+
+    private function acceptFor(KernelBrowser $client, DeliveryPipeline $pipeline, string $idempotencyKey, bool $requiresUserAction): string
+    {
+        $id = $pipeline->accept([
+            'userId' => 'user-1',
+            'idempotencyKey' => $idempotencyKey,
+            'channels' => ['email'],
+            'subject' => 'Hello',
+            'body' => 'End to end.',
+            'requiresUserAction' => $requiresUserAction,
+        ]);
+        $this->assertResponseIsDocumented($client);
+
+        return $id;
+    }
+
+    /** @return list<Envelope> */
+    private function delayed(DeliveryPipeline $pipeline): array
+    {
+        $delayed = [];
+        foreach ($pipeline->queued() as $envelope) {
+            if (null !== $envelope->last(DelayStamp::class)) {
+                $delayed[] = $envelope;
+            }
+        }
+
+        return $delayed;
     }
 
     private function acceptEmail(KernelBrowser $client, DeliveryPipeline $pipeline, string $idempotencyKey): string

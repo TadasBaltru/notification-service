@@ -8,6 +8,15 @@ framework:
     #esi: true
     #fragments: true
 
+    rate_limiter:
+        per_user_notifications:
+            policy: sliding_window
+            limit: '%env(int:NOTIFICATIONS_THROTTLE_LIMIT)%'
+            interval: '%env(NOTIFICATIONS_THROTTLE_INTERVAL)%'
+            cache_pool: cache.rate_limiter
+            # flock is per container; app and worker would not share it.
+            lock_factory: null
+
 when@test:
     framework:
         test: true

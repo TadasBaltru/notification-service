@@ -15,11 +15,11 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | Messenger + Doctrine transport = outbox without a broker; Mailer, HttpClient, Uid v7, Clock, RateLimiter on DBAL cache | §1.7 |
 | `symfony/notifier` rejected: its failover DSN hides the semantics we must design | §1.8 |
 | OpenAPI via NelmioApiDocBundle + Swagger UI; dump gated by PHPUnit; not a hand-written spec, not API Platform | §1.9 |
-| Channels/providers are parameters in `notifications.yaml`, env-overridable, validated at container build | §2.1 |
+| Channels/providers are parameters in `notifications.yaml`, env-overridable, validated at container build; throttle limit/interval from env, `lock_factory: null` | §2.1 |
 | Provider ordering `priority` (default) or `round_robin`; same failover rules after the starting point | §2.2 |
 | Request flag is `requiresUserAction`; recipients resolved by a config-seeded stub resolver | §2.3 |
 | Unknown user or missing contact for a requested channel -> 422 at accept time; disabled -> `skipped` only once config exists (2.1) | §2.3 |
-| Transient -> next provider; all transient -> recoverable -> Messenger retry 5x (2 s x3 backoff, max 5 min) -> `failed` transport; delivery stays `pending` | §3.1 |
+| Transient -> next provider; all transient -> `DeliveryRequiresRetry` (not `RecoverableExceptionInterface`) -> Messenger retry 5x (2 s x3 backoff, max 5 min) -> `failed` transport; delivery stays `pending` | §3.1 |
 | Permanent recipient-level -> stop, delivery `failed`; permanent provider-level (401/403, other Twilio 400) -> one failover (counter), then `failed` | §3.2 |
 | Twilio: 201 + sid success; 400 21211/21614 recipient; other 4xx provider; 429/5xx transient; transport error unknown | §3.2 |
 | Unknown outcome (timeout after send) -> attempt `unknown`, **no same-run failover**, retry later; at-least-once accepted | §3.3 |

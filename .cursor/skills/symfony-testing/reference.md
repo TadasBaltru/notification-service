@@ -130,7 +130,7 @@ final class SendNotificationEndpointTest extends WebTestCase
         $payload = json_decode((string) $client->getResponse()->getContent(), true);
         $client->request('GET', '/notifications/'.$payload['id']);
         self::assertResponseIsSuccessful();
-        // assert decoded array: deliveries[0].status === 'sent'; or assertInstanceOf(RecoverableMessageHandlingException::class, $failure)
+        // assert decoded array: deliveries[0].status === 'sent'; or assertInstanceOf(DeliveryRequiresRetry::class, $failure)
     }
 }
 ```

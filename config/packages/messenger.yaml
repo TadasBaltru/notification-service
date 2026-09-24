@@ -29,5 +29,12 @@ when@test:
     framework:
         messenger:
             transports:
-                async: 'in-memory://'
+                # delay 0 and one retry so a test worker can exhaust the strategy without sleeping.
+                # Production stays on the delays above.
+                async:
+                    dsn: 'in-memory://'
+                    retry_strategy:
+                        max_retries: 1
+                        delay: 0
+                        multiplier: 1
                 failed: 'in-memory://'

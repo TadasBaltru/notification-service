@@ -68,17 +68,16 @@ The tag is collected by `#[AutowireIterator('notification.provider')]`. SMTP is 
 
 ## R3 — Messenger message + handler (from `src/NotificationPublisher/Application/Command/DeliverNotificationHandler.php`)
 ```php
-final readonly class DeliverNotification
-{
-    public function __construct(public string $deliveryId) {}
-}
-
 #[AsMessageHandler(bus: 'delivery.bus')]
 final readonly class DeliverNotificationHandler
 {
     public function __construct(
         private DeliveryRepository $deliveries,
         private FailoverDeliveryStrategy $strategy,
+        private DeliveryThrottle $throttle,
+        private ClockInterface $clock,
+        #[Target('deliveryBus')]
+        private MessageBusInterface $deliveryBus,
     ) {}
 
     public function __invoke(DeliverNotification $message): void
@@ -86,6 +85,16 @@ final readonly class DeliverNotificationHandler
         $delivery = $this->deliveries->get(DeliveryId::fromString($message->deliveryId));
         if ($delivery->isFinal()) {
             return;
+        }
+        if ($delivery->notification()->requiresUserAction()) {
+            $decision = $this->throttle->decide($delivery);
+            if ($decision->isThrottled()) {
+                $delivery->markThrottled($this->clock->now());
+                $this->deliveries->save($delivery);
+                $this->deliveryBus->dispatch($message, [new DelayStamp($decision->retryAfterMs())]);
+
+                return;
+            }
         }
         $result = $this->strategy->deliver($delivery, fn() => $this->deliveries->save($delivery));
         $this->deliveries->save($delivery);
@@ -95,13 +104,12 @@ final readonly class DeliverNotificationHandler
         if ($result->isPermanent()) {
             throw new UnrecoverableMessageHandlingException($result->reason());
         }
-        throw new RecoverableMessageHandlingException($result->reason());
+        throw new DeliveryRequiresRetry($result->reason());
     }
 }
 ```
-`SendNotificationHandler` dispatches one message per pending delivery on `delivery.bus` (`#[Target('deliveryBus')]`).
-`command.bus` has `doctrine_transaction`, so those Doctrine-transport rows commit with the notification.
-`delivery.bus` has only `doctrine_ping_connection` (DECISIONS §3.6). The closure flushes `in_progress` before `send()`.
+The message is `DeliverNotification(string $deliveryId)`. `requiresUserAction` is checked here, not inside the limiter. A throttled delivery is saved and re-dispatched; the handler returns, so Messenger does not spend a failure retry (DECISIONS §3.6).
+`command.bus` has `doctrine_transaction`. `delivery.bus` has only `doctrine_ping_connection`. The closure flushes `in_progress` before `send()`.
 Routing lives in `config/packages/messenger.yaml`. Tests use `in-memory://`.
 
 ## R4 — Doctrine attribute mapping + migration (from `src/NotificationPublisher/Domain/Model/Notification.php`; skill fragment C1/C2)
