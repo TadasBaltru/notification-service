@@ -7,10 +7,11 @@ Read this first at the start of every phase. Keep it under 20 lines. Plan lives 
 - **Day 1 (1.1–1.4):** `Notification` aggregate + Doctrine attribute mapping + `POST`/`GET /notifications`.
 - **2.1–2.4:** channel config, failover, SMTP, Twilio. SMS list is `twilio,fake_sms`.
 - **3.1–3.4:** `command.bus` + `delivery.bus`, worker, Mailpit, `DeliveryPipeline`, `DeliveryRequiresRetry` so `max_retries` applies.
-- **4.1–4.3:** throttle on `requiresUserAction` via `DelayStamp`; tracking endpoints and `(user_id, created_at)` index; PHPStan 8 / cs / doc gates clean.
+- **4.1–4.5:** throttle, tracking, PHPStan 8, README/DECISIONS/AI_NOTES. `git log --oneline` is 13 commits (not one blob). `.env.local` is gitignored; Twilio defaults are `ACtest` / `test-token`.
+- **5.1:** cold start verified (`down -v`, fresh volume, `app` + `app_test`, PHPUnit `OK (111 tests, 2565 assertions)`). Interview sheet is `docs/INTERVIEW_NOTES.md`. Push and cooldown were not started. Assignment complete. Docs working tree is still uncommitted.
 
 ## Next
-- **4.4** README / DECISIONS / AI_NOTES final.
+- Nothing in the plan. Commit the docs when you want them in the history (`docs: interview notes and cold-start verification`).
 
 ## Environment notes
 - Windows host, no `make`: `docker compose exec -T app ...` (`docs/agent/COMMANDS.md`). Docker Desktop must be up. Agent never runs git write.

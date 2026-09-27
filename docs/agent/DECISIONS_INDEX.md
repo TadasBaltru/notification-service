@@ -29,5 +29,5 @@ update the line here and record the change in `docs/AI_NOTES.md`.
 | Two buses: `command.bus` with `doctrine_transaction` (outbox), `delivery.bus` without (handler flushes, then throws); tests use `in-memory://`, never `sync://` | §3.6 |
 | Three domain tables (1.2, no `notifications.status`) + `messenger_messages` (3.1, `auto_setup=0`) + `cache_items` (4.1); user list index `(user_id, created_at)` replaces `user_id` alone (4.2); aggregates mapped with ORM attributes | §4 |
 | No users/contacts, providers/channels, templates or outbox tables | §4.1 |
-| `app_test` from `docker/mariadb/init.sql`; schema prepared by `make test`; dama rollback per test | §4.2 |
-| Out of scope: push channel, templating, cooldown/circuit breaker, receipt webhooks, API auth, multi-tenancy | §5 |
+| `app_test` from `docker/mariadb/init.sql` (cold start `down -v` verified in 5.1); schema prepared before PHPUnit; dama rollback per test | §4.2 |
+| Out of scope: push channel, templating, cooldown/circuit breaker, receipt webhooks, API auth, multi-tenancy, FrankenPHP worker mode | §5 |
