@@ -87,7 +87,7 @@ Expected: the POST prints `"status": "pending"` and HTTP is 202 the first time t
 - The caller sends the final `subject` and `body`. This service does not render templates.
 - Delivery is at-least-once. Exactly-once is not achievable with SMTP or Twilio. The same `idempotencyKey` returns the existing notification. A Messenger redelivery does not send again once the delivery is final. SMTP `Message-ID` is derived from the delivery id.
 - Notifications with `requiresUserAction: true` are limited to 300 per user per hour (sliding window, shared by the app and the worker). Past the limit the delivery stays `throttled` and is delayed; it does not use up a failure retry.
-- `.cursor/rules` and `.cursor/skills` are part of how the assistant was used. The log is `docs/AI_NOTES.md`. Choices are `docs/DECISIONS.md`.
+- AI: Cursor with Claude Fable 5.1 as planner and Grok 4.7 as implementer; `.cursor/rules` and `.cursor/skills` constrain both. Log: `docs/AI_NOTES.md`. Choices: `docs/DECISIONS.md`.
 - What was left out, and why, is `docs/DECISIONS.md` §5: push, templates, provider cooldown / circuit breaker, delivery-receipt webhooks, API authentication, multi-tenancy, FrankenPHP worker mode.
 
 ## Extending

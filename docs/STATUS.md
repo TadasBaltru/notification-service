@@ -14,6 +14,7 @@ Read this first at the start of every phase. Keep it under 20 lines. Plan lives 
 - Nothing in the plan. Commit the docs when you want them in the history (`docs: interview notes and cold-start verification`).
 
 ## Environment notes
+- AI stack: Cursor; Fable 5.1 planned, Grok 4.7 implemented (`docs/AI_NOTES.md` opening).
 - Windows host, no `make`: `docker compose exec -T app ...` (`docs/agent/COMMANDS.md`). Docker Desktop must be up. Agent never runs git write.
 - `.env.local` is `XDEBUG_MODE=debug` only. Do not set `MAILER_DSN` there (a real env var beats `.env.test`'s `null://null`).
 - `docker/entrypoint.sh` is copied into the image: rebuild after editing it (`docker compose up -d --build --wait`).

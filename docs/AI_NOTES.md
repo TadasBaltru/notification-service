@@ -1,8 +1,15 @@
 # AI and tooling notes
 
-Tools used: Cursor IDE with Claude (agent mode), project-level Cursor rules and skills under `.cursor/`,
-PHPStan, php-cs-fixer, PHPUnit. The agent was used for scaffolding, boilerplate, test drafting and documentation drafts;
-every architectural decision was reviewed and is recorded in `docs/DECISIONS.md`.
+Tools used: [Cursor](https://cursor.com) IDE; project-level rules and skills under `.cursor/`; PHPStan,
+php-cs-fixer, PHPUnit.
+
+Model split (deliberate):
+- **Planner:** Claude Fable 5.1 — architecture, phase briefs, plan review, decisions wording, “what to build next”.
+- **Implementer:** Grok 4.7 (agent mode) — scaffolding, boilerplate, tests, docs drafts, running the phase-runner
+  loop (narrowest test after each change, STATUS / TRACE updates).
+
+Every architectural decision was reviewed by the author and is recorded in `docs/DECISIONS.md`. The split kept
+planning context separate from long coding sessions so the planner did not burn tokens on edit–test cycles.
 
 Format per phase: what the assistant proposed, what was accepted or rejected, what had to be verified or corrected.
 
@@ -99,8 +106,9 @@ Format per phase: what the assistant proposed, what was accepted or rejected, wh
   normalising three CRLF files (`tools/*.php`, `tests/object-manager.php`) that a Windows editor had rewritten.
 
 ## Phase pack — copy-paste briefs (after 0.6)
-- Proposed and accepted: one markdown file per PLAN §4 phase under `.notes/phases/` (gitignored) so a new Grok
-  chat starts from a slice, not the whole plan. Index and "where planning data lives" table: `.notes/phases/README.md`.
+- Proposed and accepted: one markdown file per PLAN §4 phase under `.notes/phases/` (gitignored) so a new Grok 4.7
+  implementer chat starts from a slice, not the whole plan (Fable 5.1 keeps the plan / briefs). Index and "where
+  planning data lives" table: `.notes/phases/README.md`.
 - Rejected: seeding `CODE_MAP.md` with planned classes in 0.6 — `check-docs.php` would fail on missing files.
 - Verified this session: `HealthEndpointTest` against `app_test`; php-cs-fixer 0/8; phpstan OK; check-docs OK;
   check-layers OK; DBGp `init` from the container (`fileuri="file:///app/public/index.php"`) after
