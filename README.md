@@ -30,6 +30,18 @@ curl.exe -fsS http://localhost:18080/health
 
 Expected body: `{"status":"ok"}`.
 
+## URLs (after start)
+
+| What | URL |
+|---|---|
+| Health | http://localhost:18080/health |
+| Swagger UI (Try it out) | http://localhost:18080/api/doc |
+| OpenAPI JSON | http://localhost:18080/api/doc.json |
+| Committed OpenAPI dump | [`docs/openapi.json`](docs/openapi.json) |
+| Mailpit inbox | http://localhost:18025 |
+
+Default HTTP port is `18080` (`HTTP_PORT` in `.env`). Change that and the host URLs above change with it.
+
 ## Test
 
 Tests use the `app_test` database. Each test runs in a transaction that `dama/doctrine-test-bundle` rolls back.
@@ -44,7 +56,7 @@ Expected: `Database "app_test" ... already exists. Skipped.` or `Created`, then 
 
 ## Exercise
 
-Swagger UI first, then the same calls from the shell, then Mailpit.
+Use [Swagger UI](http://localhost:18080/api/doc) first (manual Try it out), then the same calls from the shell, then [Mailpit](http://localhost:18025).
 
 The docs routes are unauthenticated in every environment so you can try them immediately. Behind a real gateway they would be restricted.
 
@@ -53,7 +65,7 @@ curl.exe -fsS -o NUL -w "%{http_code}" http://localhost:18080/api/doc
 curl.exe -fsS -o NUL -w "%{http_code}" http://localhost:18080/api/doc.json
 ```
 
-Both print `200`. Open http://localhost:18080/api/doc . Every operation has a summary. **Try it out** on `GET /health` returns `{"status":"ok"}`. `POST /notifications` has an example body. Each status on an operation has a response schema (202 and 200 for accept, 400 and 422 for a bad body, 404 for an unknown id, 400 for a bad `since`).
+Both print `200`. In Swagger UI every operation has a summary. **Try it out** on `GET /health` returns `{"status":"ok"}`. `POST /notifications` has an example body (`user-1`, email channel). Poll `GET /notifications/{id}` until `status` is `sent`, then check Mailpit. Each status on an operation has a response schema (202 and 200 for accept, 400 and 422 for a bad body, 404 for an unknown id, 400 for a bad `since`). Raw spec: [http://localhost:18080/api/doc.json](http://localhost:18080/api/doc.json).
 
 A generated copy of the spec is `docs/openapi.json`. After changing an `#[OA\...]` attribute, regenerate it. The redirect runs inside the container: a PowerShell `>` writes UTF-16 and breaks `OpenApiSnapshotTest`.
 
